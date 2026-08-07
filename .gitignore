@@ -1,0 +1,19 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+.DS_Store
+
+# Local tooling that is specific to one machine's editor setup
+tools/setup-xcode-mcp.sh
+tools/fix-xcode-mcp-path.sh
+
+# Probe output — contains site, billing and client data
+tools/api-dump.txt
+tools/web-bundle-calls.txt
+tools/bundle.js
+
+# Scratch
+tools/*.tgz
+_to_delete/
