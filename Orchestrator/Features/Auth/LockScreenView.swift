@@ -1,4 +1,5 @@
 import SwiftUI
+import OrchestratorKit
 
 /// Covers the whole app while it is locked. Deliberately offers only two ways forward:
 /// authenticate, or sign out and start over.

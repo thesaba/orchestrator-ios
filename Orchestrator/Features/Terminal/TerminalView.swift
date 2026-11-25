@@ -1,4 +1,5 @@
 import SwiftUI
+import OrchestratorKit
 
 struct TerminalView: View {
     let site: Site

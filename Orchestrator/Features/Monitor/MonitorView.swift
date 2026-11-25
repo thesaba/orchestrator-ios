@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import OrchestratorKit
 
 struct MonitorView: View {
     @State private var model = MonitorViewModel()

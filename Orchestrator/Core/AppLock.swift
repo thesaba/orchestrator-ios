@@ -1,6 +1,7 @@
 import Foundation
 import LocalAuthentication
 import SwiftUI
+import OrchestratorKit
 
 /// Optional Face ID / Touch ID / passcode gate in front of the whole app.
 ///

@@ -1,4 +1,5 @@
 import SwiftUI
+import OrchestratorKit
 
 struct SystemControlView: View {
     @State private var info: SystemInfo?

@@ -3,6 +3,10 @@ xcuserdata/
 *.xcuserstate
 DerivedData/
 build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
 .DS_Store
 
 # Local tooling that is specific to one machine's editor setup
