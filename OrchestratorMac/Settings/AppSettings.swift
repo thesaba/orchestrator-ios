@@ -25,15 +25,9 @@ final class AppSettings {
     var notifyServerAlerts: Bool { didSet { store(notifyServerAlerts, .notifyServerAlerts) } }
     var notifyCertificates: Bool { didSet { store(notifyCertificates, .notifyCertificates) } }
 
-    /// The command palette's global shortcut. Default Option-Space.
-    var paletteShortcut: KeyCombo {
-        didSet { defaults.set(try? JSONEncoder().encode(paletteShortcut), forKey: Key.paletteShortcut.rawValue) }
-    }
     /// SSH user for the panel's own server (sites without a server). Remote servers use
     /// the user stored in the panel.
     var localSSHUser: String { didSet { store(localSSHUser, .localSSHUser) } }
-    /// Palette command ids, most recent first.
-    private(set) var recentCommands: [String] { didSet { store(recentCommands, .recentCommands) } }
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -45,14 +39,7 @@ final class AppSettings {
         notifyDeploys = Self.read(defaults, .notifyDeploys, default: true)
         notifyServerAlerts = Self.read(defaults, .notifyServerAlerts, default: true)
         notifyCertificates = Self.read(defaults, .notifyCertificates, default: true)
-        paletteShortcut = defaults.data(forKey: Key.paletteShortcut.rawValue)
-            .flatMap { try? JSONDecoder().decode(KeyCombo.self, from: $0) } ?? .optionSpace
         localSSHUser = Self.read(defaults, .localSSHUser, default: "root")
-        recentCommands = Self.read(defaults, .recentCommands, default: [])
-    }
-
-    func recordRecent(_ commandID: String) {
-        recentCommands = CommandCatalog.recording(commandID, in: recentCommands)
     }
 
     private enum Key: String {
@@ -62,9 +49,7 @@ final class AppSettings {
         case notifyDeploys = "settings.notify.deploys"
         case notifyServerAlerts = "settings.notify.serverAlerts"
         case notifyCertificates = "settings.notify.certificates"
-        case paletteShortcut = "settings.palette.shortcut"
         case localSSHUser = "settings.ssh.localUser"
-        case recentCommands = "settings.palette.recent"
     }
 
     private func store(_ value: some Any, _ key: Key) {

@@ -8,6 +8,9 @@ struct SiteLogsView: View {
     let api: OrchestratorAPI
 
     @State private var entries: [SiteLogsResponse.Entry] = []
+    @State private var path: String?
+    @State private var total: Int?
+    @State private var hasLoaded = false
     @State private var level = ""
     @State private var search = ""
     @State private var isLoading = false
@@ -35,6 +38,16 @@ struct SiteLogsView: View {
                 .accessibilityLabel("Refresh")
             }
             .padding(12)
+            if let path, !entries.isEmpty {
+                Text("\(total ?? entries.count) entries · \(path)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+            }
             Divider()
 
             if let error {
@@ -43,11 +56,28 @@ struct SiteLogsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if entries.isEmpty {
                 Group {
-                    if isLoading { ProgressView() } else { Text("No log entries").foregroundStyle(.secondary) }
+                    if isLoading || !hasLoaded {
+                        ProgressView()
+                    } else {
+                        VStack(spacing: 8) {
+                            Text(level.isEmpty && search.isEmpty ? "No log entries" : "No entries match the filter")
+                                .font(.headline)
+                            if let path {
+                                Text("The panel read \(path).")
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .textSelection(.enabled)
+                            }
+                            Text("The panel reads only laravel.log (in shared/logs or current/storage/logs). A site that logs to daily files, laravel-YYYY-MM-DD.log, or to another channel shows nothing here.")
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: 440)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(entries) { entry in
+                List(Array(entries.enumerated()), id: \.offset) { _, entry in
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 6) {
                             Text((entry.level ?? "log").uppercased())
@@ -76,9 +106,13 @@ struct SiteLogsView: View {
     private func load() async {
         isLoading = true
         defer { isLoading = false }
+        defer { hasLoaded = true }
         do {
-            entries = try await api.siteLogs(siteID: siteID, level: level.isEmpty ? nil : level,
-                                             search: search, lines: 300).entries
+            let response = try await api.siteLogs(siteID: siteID, level: level.isEmpty ? nil : level,
+                                                   search: search, lines: 300)
+            entries = response.entries
+            path = response.path
+            total = response.total
             error = nil
         } catch {
             self.error = APIError.wrap(error).errorDescription

@@ -14,8 +14,10 @@ final class MonitorStore {
     private(set) var alerts: [FleetAlertEvent] = []
     private(set) var certificates: [SSLOverview.Entry] = []
     private(set) var uptime: [UptimeOverview.Entry] = []
-    /// `nil` until the (slow) site list has loaded once.
+    /// `nil` until the (slow) site list has loaded once. Logs are stripped; see `deploySummaries`.
     private(set) var siteListings: [SiteListing]?
+    /// Site id → parsed summary of its newest deploy log.
+    private(set) var deploySummaries: [Int: DeployLogSummary] = [:]
     private(set) var notifications: [AppNotification] = []
 
     /// When the last refresh finished with every source answering.
@@ -60,8 +62,9 @@ final class MonitorStore {
         async let certificatesResult = capture { try await self.api.sslOverview().sites }
         async let uptimeResult = capture { try await self.api.uptime().sites }
         async let notificationsResult = capture { try await self.api.notifications().notifications }
-        async let sitesResult: Result<[SiteListing], Error>? = includeSiteList
-            ? capture { try await self.api.siteListings() }
+        // Decoded and parsed off the main actor; only the summaries are kept.
+        async let sitesResult: Result<SiteListDigest, Error>? = includeSiteList
+            ? capture { SiteListDigest(try await self.api.siteListings()) }
             : nil
 
         var failures: [String] = []
@@ -78,14 +81,15 @@ final class MonitorStore {
         apply(await uptimeResult, label: "uptime") { uptime = $0 }
         apply(await notificationsResult, label: "notifications") { notifications = $0 }
         if let result = await sitesResult {
-            apply(result, label: "sites") { listings in
-                siteListings = listings
+            apply(result, label: "sites") { digest in
+                siteListings = digest.sites
+                deploySummaries = digest.summaries
                 siteListUpdated = .now
             }
         }
 
         overview = aggregator.overview(servers: servers, alerts: alerts, certificates: certificates,
-                                       uptime: uptime, sites: siteListings)
+                                       uptime: uptime, sites: siteListings, deploySummaries: deploySummaries)
         hasLoaded = true
         if failures.isEmpty {
             lastUpdated = .now
@@ -104,6 +108,7 @@ final class MonitorStore {
         certificates = []
         uptime = []
         siteListings = nil
+        deploySummaries = [:]
         notifications = []
         lastUpdated = nil
         siteListUpdated = nil

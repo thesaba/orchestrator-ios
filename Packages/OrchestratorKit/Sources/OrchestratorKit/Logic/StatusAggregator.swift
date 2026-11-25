@@ -26,6 +26,7 @@ public struct StatusAggregator: Sendable {
                          certificates: [SSLOverview.Entry],
                          uptime: [UptimeOverview.Entry],
                          sites: [SiteListing]?,
+                         deploySummaries: [Int: DeployLogSummary] = [:],
                          now: Date = .now) -> FleetOverview {
         var result = FleetOverview()
 
@@ -47,7 +48,7 @@ public struct StatusAggregator: Sendable {
         }
 
         // Sites
-        result.sites = siteStatuses(uptime: uptime, sites: sites)
+        result.sites = siteStatuses(uptime: uptime, sites: sites, summaries: deploySummaries)
         for site in result.sites {
             result.siteCounts.total += 1
             switch site.mark {
@@ -119,7 +120,8 @@ public struct StatusAggregator: Sendable {
 
     // MARK: - Sites
 
-    func siteStatuses(uptime: [UptimeOverview.Entry], sites: [SiteListing]?) -> [SiteStatus] {
+    func siteStatuses(uptime: [UptimeOverview.Entry], sites: [SiteListing]?,
+                      summaries: [Int: DeployLogSummary] = [:]) -> [SiteStatus] {
         let uptimeBySite = Dictionary(uptime.map { ($0.siteId, $0) }, uniquingKeysWith: { first, _ in first })
         var statuses: [SiteStatus]
 
@@ -135,7 +137,8 @@ public struct StatusAggregator: Sendable {
                     lastDeployAt: deployment?.createdAt,
                     lastDeployStatus: deployment?.status,
                     lastDeploymentID: deployment?.id,
-                    deploy: deployment?.log.map { DeployLogParser.parse($0, status: deployment?.status) }
+                    // Pre-parsed by `SiteListDigest`; parse here only when a log is still attached.
+                    deploy: summaries[site.id] ?? deployment?.log.map { DeployLogParser.parse($0, status: deployment?.status) }
                 )
             }
         } else {

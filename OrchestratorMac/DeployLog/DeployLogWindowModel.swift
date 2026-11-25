@@ -147,14 +147,26 @@ final class DeployLogWindowModel {
         isLoadingHistory = true
         defer { isLoadingHistory = false }
         do {
-            let listing = try await environment.api.siteListing(id: siteID)
-            deployments = listing.deployments
-            summaries = [:]
+            let history = try await Self.fetchHistory(api: environment.api, siteID: siteID)
+            deployments = history.deployments
+            summaries = history.summaries
             historyError = nil
             if let selected = selectedDeployment { show(selected) }
         } catch {
             historyError = APIError.wrap(error).errorDescription
         }
+    }
+
+    /// Up to 20 deployments with full logs (megabytes): decode and parse off the main actor.
+    @concurrent
+    private nonisolated static func fetchHistory(api: OrchestratorAPI, siteID: Int) async throws
+        -> (deployments: [DeploymentRecord], summaries: [Int: DeployLogSummary]) {
+        let listing = try await api.siteListing(id: siteID)
+        var summaries: [Int: DeployLogSummary] = [:]
+        for deployment in listing.deployments {
+            summaries[deployment.id] = DeployLogParser.parse(deployment.log ?? "", status: deployment.status)
+        }
+        return (listing.deployments, summaries)
     }
 
     func select(_ deployment: DeploymentRecord) {

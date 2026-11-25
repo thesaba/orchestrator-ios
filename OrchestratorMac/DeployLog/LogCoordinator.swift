@@ -4,7 +4,7 @@ import OrchestratorKit
 /// Owns live log sessions and the panels and windows that show them, one per site.
 ///
 /// Streams are attached only on a user action: running a command, "Show log", opening a
-/// log from the palette or a notification. Closing a panel detaches; the server keeps going.
+/// log from a menu or a notification. Closing a panel detaches; the server keeps going.
 @MainActor
 final class LogCoordinator {
     private unowned let environment: AppEnvironment

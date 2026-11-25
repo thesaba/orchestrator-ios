@@ -16,14 +16,24 @@ struct SiteList: View {
             VStack(spacing: 0) {
                 ForEach(Array(sites.enumerated()), id: \.element.id) { index, site in
                     if index > 0 { Divider() }
-                    if site.isDeploying {
-                        DeployingSiteRow(site: site) { environment.logs.showLiveDeploy(for: site) }
-                    } else {
-                        SiteRow(site: site) {
-                            let executor = environment.executor
-                            Task { await executor.deploy(siteID: site.id, ref: nil) }
+                    Group {
+                        if site.isDeploying {
+                            DeployingSiteRow(site: site) { environment.logs.showLiveDeploy(for: site) }
+                        } else {
+                            SiteRow(site: site) {
+                                let executor = environment.executor
+                                Task { await executor.deploy(siteID: site.id, ref: nil) }
+                            }
                         }
                     }
+                    .contentShape(Rectangle())
+                    .rightClickMenu { RowMenus.site(site, environment: environment) }
+                    .accessibilityAction(named: "Roll back") {
+                        let executor = environment.executor
+                        Task { await executor.rollback(siteID: site.id) }
+                    }
+                    .accessibilityAction(named: "Deploy log") { environment.open(.deployLog(siteID: site.id)) }
+                    .accessibilityAction(named: "Site logs") { environment.open(.siteLogs(siteID: site.id)) }
                 }
             }
             .card()

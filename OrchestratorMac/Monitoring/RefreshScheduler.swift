@@ -8,22 +8,26 @@ import OrchestratorKit
 ///   minute; every 30 s while a deploy runs and the popover is open.
 /// - Paused while the Mac sleeps or is offline; refreshes right after wake and reconnect.
 @MainActor
+@Observable
 final class RefreshScheduler {
-    var isPopoverOpen = false {
+    /// Set from the menu bar menu: no polling at all until resumed (not kept across launches).
+    private(set) var isPaused = false
+
+    @ObservationIgnored var isPopoverOpen = false {
         didSet {
             guard isPopoverOpen != oldValue else { return }
             reschedule(refreshNow: isPopoverOpen)
         }
     }
 
-    private let store: MonitorStore
-    private let settings: AppSettings
-    private let connectivity: ConnectivityMonitor
-    private var loop: Task<Void, Never>?
-    private var isRunning = false
-    private var isAsleep = false
-    private var observers: [NSObjectProtocol] = []
-    private var observations: [ObservationLoop] = []
+    @ObservationIgnored private let store: MonitorStore
+    @ObservationIgnored private let settings: AppSettings
+    @ObservationIgnored private let connectivity: ConnectivityMonitor
+    @ObservationIgnored private var loop: Task<Void, Never>?
+    @ObservationIgnored private var isRunning = false
+    @ObservationIgnored private var isAsleep = false
+    @ObservationIgnored private var observers: [NSObjectProtocol] = []
+    @ObservationIgnored private var observations: [ObservationLoop] = []
 
     private static let siteListOnOpenAge: TimeInterval = 60
     private static let siteListWhileDeploying: TimeInterval = 30
@@ -52,6 +56,18 @@ final class RefreshScheduler {
         observations.removeAll()
     }
 
+    func pause() {
+        isPaused = true
+        loop?.cancel()
+        loop = nil
+    }
+
+    func resume() {
+        guard isPaused else { return }
+        isPaused = false
+        reschedule(refreshNow: true, forceSiteList: true)
+    }
+
     /// Manual refresh from the popover's Refresh button.
     func refreshNow() {
         reschedule(refreshNow: true, forceSiteList: true)
@@ -65,7 +81,7 @@ final class RefreshScheduler {
 
     // MARK: - Loop
 
-    private var canRefresh: Bool { isRunning && !isAsleep && connectivity.isOnline }
+    private var canRefresh: Bool { isRunning && !isPaused && !isAsleep && connectivity.isOnline }
 
     private var interval: TimeInterval {
         TimeInterval(isPopoverOpen ? settings.fastRefreshSeconds : settings.backgroundRefreshSeconds)
@@ -73,7 +89,7 @@ final class RefreshScheduler {
 
     private func reschedule(refreshNow: Bool, forceSiteList: Bool = false, delay: TimeInterval = 0) {
         loop?.cancel()
-        guard isRunning else { return }
+        guard isRunning, !isPaused else { return }
         loop = Task { [weak self] in
             if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
             var shouldRefresh = refreshNow

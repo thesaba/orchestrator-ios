@@ -7,13 +7,13 @@ import SwiftUI
 final class CompactLogPanelController: NSObject, NSWindowDelegate {
     private let session: LogSession
     private unowned let coordinator: LogCoordinator
-    private let panel: PalettePanel
+    private let panel: KeyablePanel
     private let state = CompactPanelState()
 
     init(session: LogSession, coordinator: LogCoordinator, index: Int) {
         self.session = session
         self.coordinator = coordinator
-        panel = PalettePanel(contentRect: NSRect(x: 0, y: 0, width: 480, height: 380),
+        panel = KeyablePanel(contentRect: NSRect(x: 0, y: 0, width: 480, height: 380),
                         styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView, .resizable],
                         backing: .buffered, defer: true)
         super.init()
@@ -172,7 +172,7 @@ struct CompactLogView: View {
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
                 Spacer()
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                TimelineView(.periodic(from: .now, by: session.isFinished ? 86_400 : 1)) { _ in
                     Text(Durations.clock(session.elapsedSeconds))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.secondary)

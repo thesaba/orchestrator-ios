@@ -60,11 +60,13 @@ final class NotificationCoordinator: NSObject {
     // MARK: - Processing a refresh
 
     func process(_ store: MonitorStore) {
+        let before = ledger
         ledger.pruneExpired()
         processDeploys(store)
         processAlerts(store)
         processCertificates(store)
-        ledger.save(to: defaults)
+        // Most refreshes change nothing; skip the disk write then.
+        if ledger != before { ledger.save(to: defaults) }
     }
 
     private func processDeploys(_ store: MonitorStore) {
@@ -195,7 +197,27 @@ final class NotificationCoordinator: NSObject {
         add(content, id: "info-\(UUID().uuidString)")
     }
 
+    // MARK: - Snooze (menu bar menu)
+
+    var snoozedUntil: Date? { ledger.isAllSnoozed() ? ledger.allSnoozedUntil : nil }
+
+    func snoozeAll(until date: Date) {
+        ledger.allSnoozedUntil = date
+        ledger.save(to: defaults)
+    }
+
+    func snoozeAllUntilTomorrow() {
+        snoozeAll(until: Self.tomorrowMorning())
+    }
+
+    func resumeAll() {
+        ledger.allSnoozedUntil = nil
+        ledger.save(to: defaults)
+    }
+
     private func add(_ content: UNNotificationContent, id: String) {
+        // While snoozed, changes are still recorded (so nothing is announced late) but not shown.
+        guard !ledger.isAllSnoozed() else { return }
         center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
     }
 

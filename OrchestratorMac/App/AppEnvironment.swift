@@ -1,3 +1,4 @@
+import AppIntents
 import AppKit
 import Observation
 import OrchestratorKit
@@ -5,6 +6,9 @@ import OrchestratorKit
 /// Owns the app's long-lived objects and wires them together.
 @MainActor
 final class AppEnvironment {
+    /// The running app's environment, for App Intents (which the system instantiates itself).
+    private(set) static weak var current: AppEnvironment?
+
     let settings = AppSettings()
     let session = Session()
     let connectivity = ConnectivityMonitor()
@@ -15,15 +19,15 @@ final class AppEnvironment {
     let api = OrchestratorAPI.shared
     private(set) lazy var executor = CommandExecutor(environment: self)
     private(set) lazy var logs = LogCoordinator(environment: self)
-    private(set) lazy var palette = PaletteController(environment: self)
+    let artisanCatalog = ArtisanCatalog()
     private(set) var statusItem: StatusItemController?
-    /// True when the system refused the palette shortcut (another app owns it).
-    private(set) var shortcutUnavailable = false
 
     private var sessionObservation: ObservationLoop?
+    private var lastSiteListForShortcuts: Date?
 
     init() {
         store = MonitorStore(settings: settings)
+        defer { Self.current = self }
         scheduler = RefreshScheduler(store: store, settings: settings, connectivity: connectivity)
         notifications = NotificationCoordinator(settings: settings)
         windows = WindowCoordinator()
@@ -33,19 +37,21 @@ final class AppEnvironment {
         store.onRefresh = { [weak self] in
             guard let self else { return }
             self.notifications.process(self.store)
+            // Lets Shortcuts and Spotlight offer the current sites in "Deploy <site>".
+            if self.store.siteListUpdated != self.lastSiteListForShortcuts {
+                self.lastSiteListForShortcuts = self.store.siteListUpdated
+                OrchestratorShortcuts.updateAppShortcutParameters()
+                // The Artisan allow-list for the right-click menus (one GET, once).
+                self.artisanCatalog.loadIfNeeded(siteID: self.store.siteListings?.first?.id, api: self.api)
+            }
         }
     }
 
-    /// Registers (or re-registers) the palette's global shortcut from settings.
-    func applyShortcut() {
-        shortcutUnavailable = !palette.registerShortcut()
-    }
 
     func start() {
         connectivity.start()
         statusItem = StatusItemController(environment: self)
         notifications.start()
-        applyShortcut()
 
         sessionObservation = ObservationLoop { [weak self] in
             _ = self?.session.phase
@@ -81,6 +87,37 @@ final class AppEnvironment {
             store.reset()
         case .launching:
             break
+        }
+    }
+
+    // MARK: - Deep links
+
+    /// Opens what an `orchestrator://` link points at. Never runs a write.
+    func open(_ link: DeepLink) {
+        guard session.phase != .signedOut else {
+            windows.showSignIn()
+            return
+        }
+        switch link {
+        case .popover(let segment):
+            let target: PopoverSegment
+            switch segment {
+            case .overview: target = .overview
+            case .servers:  target = .servers
+            case .sites:    target = .sites
+            case .alerts:   target = .alerts
+            }
+            statusItem?.showPopover(segment: target)
+        case .settings:
+            windows.showSettings()
+        case .deployLog(let siteID):
+            logs.showWindow(siteID: siteID, domain: executor.domain(of: siteID))
+        case .siteLogs(let siteID):
+            windows.showSiteLogs(siteID: siteID, domain: executor.domain(of: siteID))
+        case .site(let siteID):
+            WebPanel.open(.site(id: siteID))
+        case .server(let serverID):
+            WebPanel.open(.server(id: serverID))
         }
     }
 

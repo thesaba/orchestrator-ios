@@ -1,10 +1,11 @@
 import AppKit
+import OrchestratorKit
 import SwiftUI
 
 /// The menu bar item and its popover.
 ///
 /// `NSStatusItem` + `NSPopover` rather than `MenuBarExtra`, because notifications, widgets
-/// and the palette need to open the popover programmatically on a given segment.
+/// and deep links need to open the popover programmatically on a given segment.
 @MainActor
 final class StatusItemController: NSObject, NSPopoverDelegate {
     private let environment: AppEnvironment
@@ -46,11 +47,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     func popoverWillShow(_ notification: Notification) {
+        popoverState.isVisible = true
         environment.scheduler.isPopoverOpen = true
+        environment.artisanCatalog.loadIfNeeded(siteID: environment.store.siteListings?.first?.id,
+                                                api: environment.api)
     }
 
     func popoverDidClose(_ notification: Notification) {
         environment.scheduler.isPopoverOpen = false
+        popoverState.isVisible = false
         popoverState.segment = .overview
     }
 
@@ -90,8 +95,20 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         popover.delegate = self
     }
 
+    /// Left click toggles the popover; right click or Control-click opens the menu.
     @objc private func statusItemClicked() {
-        togglePopover()
+        let event = NSApp.currentEvent
+        let isContextClick = event?.type == .rightMouseUp
+            || (event?.type == .leftMouseUp && event?.modifierFlags.contains(.control) == true)
+        guard isContextClick else {
+            togglePopover()
+            return
+        }
+        if popover.isShown { popover.performClose(nil) }
+        // Attach the menu only for this click, so a left click keeps opening the popover.
+        statusItem.menu = StatusItemMenu.build(environment: environment)
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
     }
 }
 

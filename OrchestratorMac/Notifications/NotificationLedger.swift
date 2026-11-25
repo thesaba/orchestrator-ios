@@ -3,7 +3,7 @@ import OrchestratorKit
 
 /// What has already been announced, so a restart or a refresh never repeats a notification.
 /// Mutes and snoozes are local to this Mac; nothing is written to the panel.
-struct NotificationLedger: Codable {
+struct NotificationLedger: Codable, Equatable {
     /// Highest `/notifications` id already seen. `nil` until the first refresh sets a baseline.
     var lastNotificationID: Int?
     /// Fleet alert events already announced.
@@ -16,6 +16,12 @@ struct NotificationLedger: Codable {
     var certificateSnoozedUntil: [Int: Date] = [:]
     /// Server id → "Mute for 1 hour" end.
     var serverMutedUntil: [Int: Date] = [:]
+    /// All notifications silenced until this time (menu bar menu → Snooze).
+    var allSnoozedUntil: Date?
+
+    func isAllSnoozed(now: Date = .now) -> Bool {
+        (allSnoozedUntil ?? .distantPast) > now
+    }
 
     func isMuted(server id: Int, now: Date = .now) -> Bool {
         (serverMutedUntil[id] ?? .distantPast) > now
@@ -28,6 +34,7 @@ struct NotificationLedger: Codable {
     mutating func pruneExpired(now: Date = .now) {
         serverMutedUntil = serverMutedUntil.filter { $0.value > now }
         certificateSnoozedUntil = certificateSnoozedUntil.filter { $0.value > now }
+        if let until = allSnoozedUntil, until <= now { allSnoozedUntil = nil }
     }
 
     // MARK: - Persistence

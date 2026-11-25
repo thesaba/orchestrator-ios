@@ -137,11 +137,11 @@ A menu bar companion (`OrchestratorMac` target) that watches servers, sites and 
 
 - 🟢 **Menu bar item** — app glyph, a status mark (triangle for warnings, cross for failures, arrow while a deploy runs, dashed ring when data is stale) and the number of open alerts.
 - 🪟 **Popover** — Servers / Sites / Alerts tiles, Overview · Servers · Sites · Alerts, *Needs attention*, CPU and RAM meters, the running deploy's current step. *Deploy* and *Renew* run after a confirmation; *Show log* opens the live log.
-- ⌨️ **Command palette** — global shortcut (default **⌥ Space**, configurable in Settings). Fuzzy matching over verb and target (`dep ci` → *Deploy citynet.ge*), recently used commands rank higher. ↵ runs, ⌘↵ runs and opens the full log, ⌥↵ picks a branch, tag or commit for a deploy.
-  Commands: deploy, roll back, clear cache (`optimize:clear`), maintenance on/off, restart queue (`queue:restart`), any allow-listed Artisan command, renew SSL, SSH into a server (opens Terminal with your own keys), site logs, last deploy log, open in the web panel.
+- 📋 **Menu bar right-click menu** — status line; Refresh Now; Pause/Resume Monitoring; Open Alerts; Open Web Panel; Live Deploys, Recent Deploys, Sites and Servers submenus (each site with the same actions as its row menu); Snooze Notifications (1 hour or until tomorrow); Copy Status Summary; Settings…; Open at Login; About; Sign Out…; Quit. Left click still opens the popover.
+- 🖱️ **Right-click menus** — on a site row: Deploy…, Deploy Branch, Tag or Commit…, Roll Back…, Maintenance Mode On/Off…, Clear Cache… (`optimize:clear`), Restart Queue… (`queue:restart`), Run Artisan Command ▸ (the panel's allow-list), Renew SSL…, Deploy Log, Site Logs, Open in Web Panel. On a server row: SSH into the server (opens Terminal with your own keys) and Open in Web Panel.
 - 📜 **Deploy log** — a compact floating panel (step progress, elapsed time, follow output, copy) that expands into a full window: steps with durations, previous deploys, search, errors only, and a failure banner with *Copy error*, *Retry deploy* and *Explain error* (the panel's AI).
 - 🔔 **Notifications** — deploy results (*Explain*, *Open log*, *Retry…*), new fleet alerts (*Open server*, *Mute for 1 hour*), certificates within 14 days of expiry (*Renew now…*, *Remind tomorrow*). Mutes and snoozes are local.
-- ⚙️ **Settings** — account, palette shortcut, SSH user for the panel's own server, refresh intervals, notification kinds, open at login.
+- ⚙️ **Settings** — account, SSH user for the panel's own server, refresh intervals, notification kinds, open at login.
 
 **Production safety.** Every action that changes production shows a confirmation naming its consequence. Rollback, maintenance mode and destructive Artisan commands (`migrate*`, `db:*`, `queue:flush`, `telescope:clear`, `horizon:terminate`, …) then also require **Touch ID or the account password**. Destructive confirmations never default to Return. Widgets and plain notification clicks never write; *Retry…* and *Renew now…* only open the confirmation. Streams are attached only on a user action, and closing a log panel never stops a deploy.
 
@@ -168,14 +168,18 @@ A menu bar companion (`OrchestratorMac` target) that watches servers, sites and 
 
 **Setup.** Select the `OrchestratorMac` scheme, set your team, run, and paste a personal access token in the sign-in window. Fleet data needs an **admin** account.
 
-> 🔐 **Keychain sharing needs a provisioning profile.** The token is meant to live in a keychain access group shared with the widget extension (phase 3), which on macOS requires the data protection keychain and therefore a profile. A build signed without one falls back to the app's own keychain item: sign-in works, sharing does not.
+- 🔗 **Deep links** — `orchestrator://overview` (`servers`, `sites`, `alerts`), `orchestrator://settings`, `orchestrator://site/<id>/log` (deploy log), `orchestrator://site/<id>/logs` (Laravel log), `orchestrator://site/<id>` and `orchestrator://server/<id>` (web panel). Links only open things; they never run an action.
+- ⚡ **Shortcuts and Spotlight** — *Get Fleet Status* (read-only), *Deploy Site*, *Clear Site Cache*, *Restart Site Queue*, *Open Deploy Log*. Actions that change production show the system confirmation with the same consequence text as the app. Rollback and maintenance mode are not offered as Shortcuts actions because they need Touch ID.
+
+> 🔐 **No paid membership, no provisioning profile.** The app is signed with the free Apple Development certificate and uses only entitlements that need no profile: App Sandbox, outgoing network connections and a team-prefixed App Group (`$(TeamIdentifierPrefix)digital.abesadze.orchestrator`). Nothing in the build expires weekly; the signing certificate itself is valid for a year and Xcode renews it. The token stays in the main app's login-keychain item and is never shared. A future widget will read a snapshot the app writes to the App Group container, never the token.
+>
+> Keep the built app in `/Applications` (or `~/Applications`): Launch Services ignores apps in temporary folders for `orchestrator://` links, and open-at-login expects a stable location.
 
 Info.plist keys read by `OrchestratorKit.SharedContainer` (set in `Config/OrchestratorMac-Info.plist`):
 
 | Key | Value |
 |---|---|
 | `OrchestratorAppGroup` | `$(TeamIdentifierPrefix)digital.abesadze.orchestrator` |
-| `OrchestratorKeychainAccessGroup` | `$(TeamIdentifierPrefix)digital.abesadze.orchestrator` |
 | `OrchestratorKeychainService` | `digital.abesadze.orchestrator.mac` |
 
 The iOS app sets none of them and keeps its original keychain item.
@@ -312,7 +316,6 @@ orchestrator-ios/
 │   ├── App/ · MenuBar/ · Popover/  # entry point, status item, popover
 │   ├── Monitoring/                 # MonitorStore, RefreshScheduler, connectivity
 │   ├── Actions/                    # CommandExecutor, confirmations, Touch ID
-│   ├── Palette/ · Hotkey/          # command palette, global shortcut
 │   ├── DeployLog/                  # live sessions, compact panel, full window
 │   ├── Notifications/ · Settings/ · Windows/ · DesignSystem/ · Support/
 ├── Config/                         # Mac Info.plist and entitlements
@@ -346,7 +349,7 @@ Every endpoint the panel exposes has a typed method in `Packages/OrchestratorKit
 
 ## 🗺️ Roadmap
 
-- [x] 🧪 Package tests for decoding, status aggregation, deploy log parsing, fuzzy matching and formatting
+- [x] 🧪 Package tests for decoding, status aggregation, deploy log parsing, SSE, deep links and formatting
 - [ ] 🧪 Tests for date parsing and the lock state machine
 - [ ] 🖼️ Full terminal emulation (the current console strips ANSI rather than interpreting it)
 - [ ] ➕ Site creation, cloning and provisioning from the app

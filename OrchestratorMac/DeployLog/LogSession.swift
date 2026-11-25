@@ -32,6 +32,9 @@ final class LogSession: Identifiable {
     /// Set once the stream has finished.
     private(set) var finishedAt: Date?
 
+    @ObservationIgnored private var accumulator = DeployLogAccumulator()
+    /// Highest `LogLine.id` already fed to the accumulator.
+    @ObservationIgnored private var consumedThrough = -1
     @ObservationIgnored private var cachedLineCount = -1
     @ObservationIgnored private var cachedState: State?
     @ObservationIgnored private var cachedSummary = DeployLogSummary()
@@ -70,19 +73,24 @@ final class LogSession: Identifiable {
 
     var isFinished: Bool { ![.connecting, .running].contains(state) }
 
-    /// Steps and facts parsed from the lines so far; recomputed when lines arrive.
+    /// Steps and facts parsed from the lines so far. Only lines not seen before are parsed,
+    /// so a long deploy stays O(lines) instead of re-reading the whole log per line.
     var summary: DeployLogSummary {
         let current = state
-        let count = lines.count
-        if count != cachedLineCount || current != cachedState {
+        let all = lines
+        if all.count != cachedLineCount || current != cachedState {
+            for line in all where line.id > consumedThrough {
+                accumulator.consume(line.text)
+                consumedThrough = line.id
+            }
             let status: String
             switch current {
             case .succeeded:            status = "success"
             case .failed, .cancelled:   status = "failed"
             default:                    status = "running"
             }
-            cachedSummary = DeployLogParser.parse(runner.buffer.plainText, status: status)
-            cachedLineCount = count
+            cachedSummary = accumulator.summary(status: status)
+            cachedLineCount = all.count
             cachedState = current
         }
         return cachedSummary

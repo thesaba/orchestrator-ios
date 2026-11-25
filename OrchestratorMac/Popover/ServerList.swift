@@ -14,6 +14,7 @@ struct ServerList: View {
                 ForEach(Array(servers.enumerated()), id: \.element.id) { index, status in
                     if index > 0 { Divider() }
                     ServerRow(status: status)
+                        .rightClickMenu { RowMenus.server(status.server, environment: environment) }
                 }
             }
             .card()

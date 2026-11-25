@@ -37,6 +37,26 @@ enum AlertPresenter {
         return alert.runModal() == .alertFirstButtonReturn
     }
 
+    /// A text field with suggestions; nil when cancelled or left empty.
+    static func askRef(title: String, message: String, options: [String], initial: String?) -> String? {
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        let field = NSComboBox(frame: NSRect(x: 0, y: 0, width: 280, height: 26))
+        field.addItems(withObjectValues: options)
+        field.completes = true
+        field.stringValue = initial ?? options.first ?? ""
+        field.setAccessibilityLabel("Branch, tag or commit")
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        let value = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
     static func showError(_ title: String, _ message: String?) {
         NSApp.activate()
         let alert = NSAlert()

@@ -16,60 +16,11 @@ public enum DeployLogParser {
     public static let activationStep = 7
 
     public static func parse(_ log: String, status: String?) -> DeployLogSummary {
-        var summary = DeployLogSummary()
-        var firstTime: Int?
-        var lastTime: Int?
-        var dayOffset = 0
-        var previousRaw: Int?
-
-        for rawLine in log.split(separator: "\n", omittingEmptySubsequences: true) {
-            let line = ANSI.strip(String(rawLine)).trimmingCharacters(in: .whitespaces)
-            if line.isEmpty { continue }
-
-            if let value = marker("__COMMIT_MSG__:", in: line) { summary.commitMessage = value; continue }
-            if let value = marker("__COMMIT_AUTHOR__:", in: line) { summary.commitAuthor = value; continue }
-            if let value = marker("__COMMIT__:", in: line) { summary.commit = value; continue }
-            if line.hasPrefix("__") { continue }
-
-            var text = Substring(line)
-            var seconds: Int?
-            if let stamp = timestamp(in: text) {
-                let time = stamp.0
-                // Deploys can run across midnight; keep the clock monotonic.
-                if let previousRaw, time < previousRaw { dayOffset += 86_400 }
-                previousRaw = time
-                seconds = time + dayOffset
-                text = stamp.1
-                if firstTime == nil { firstTime = seconds }
-                lastTime = seconds
-            }
-
-            if text.hasPrefix("[health]") {
-                summary.healthCheckRan = true
-                if text.contains("Auto-rollback") || text.contains("rolled back") { summary.rolledBack = true }
-                continue
-            }
-            if text.hasPrefix("=== Deploy complete") {
-                summary.completed = true
-                continue
-            }
-            if let step = stepHeader(in: text, startedAt: seconds) {
-                summary.totalSteps = max(summary.totalSteps ?? 0, step.total)
-                if let index = summary.steps.firstIndex(where: { $0.id == step.id }) {
-                    // A repeated `[3b/8]` line continues the same step.
-                    if step.isSkipped == false { summary.steps[index].isSkipped = false }
-                } else {
-                    summary.steps.append(step)
-                }
-            }
+        var accumulator = DeployLogAccumulator()
+        for line in log.split(separator: "\n", omittingEmptySubsequences: true) {
+            accumulator.consume(line)
         }
-
-        if let firstTime, let lastTime {
-            summary.durationSeconds = lastTime - firstTime
-        }
-        assignDurations(&summary, endedAt: lastTime)
-        assignStates(&summary, status: status)
-        return summary
+        return accumulator.summary(status: status)
     }
 
     /// "Running migrations" for `[6/8] Running migrations...`, "Deploying branch 'main' …"
@@ -83,7 +34,7 @@ public enum DeployLogParser {
 
     // MARK: - Lines
 
-    private static func marker(_ prefix: String, in line: String) -> String? {
+    static func marker(_ prefix: String, in line: String) -> String? {
         guard line.hasPrefix(prefix) else { return nil }
         let value = line.dropFirst(prefix.count).trimmingCharacters(in: .whitespaces)
         return value.isEmpty ? nil : value
@@ -124,7 +75,7 @@ public enum DeployLogParser {
 
     // MARK: - Derived facts
 
-    private static func assignDurations(_ summary: inout DeployLogSummary, endedAt: Int?) {
+    static func assignDurations(_ summary: inout DeployLogSummary, endedAt: Int?) {
         for index in summary.steps.indices {
             guard let start = summary.steps[index].startedAt else { continue }
             let end = summary.steps[(index + 1)...].first(where: { $0.startedAt != nil })?.startedAt ?? endedAt
@@ -132,7 +83,7 @@ public enum DeployLogParser {
         }
     }
 
-    private static func assignStates(_ summary: inout DeployLogSummary, status: String?) {
+    static func assignStates(_ summary: inout DeployLogSummary, status: String?) {
         let outcome = (status ?? "").lowercased()
         let lastIndex = summary.steps.indices.last
         for index in summary.steps.indices {
@@ -148,6 +99,71 @@ public enum DeployLogParser {
                 summary.steps[index].state = .done
             }
         }
+    }
+}
+
+/// Parses a deploy log line by line, so a live log costs O(lines) in total instead of
+/// re-reading the whole text for every new line.
+public struct DeployLogAccumulator: Sendable {
+    private var summary = DeployLogSummary()
+    private var firstTime: Int?
+    private var lastTime: Int?
+    private var dayOffset = 0
+    private var previousRaw: Int?
+
+    public init() {}
+
+    public mutating func consume(_ rawLine: some StringProtocol) {
+        let line = ANSI.strip(String(rawLine)).trimmingCharacters(in: .whitespaces)
+        if line.isEmpty { return }
+
+        if let value = DeployLogParser.marker("__COMMIT_MSG__:", in: line) { summary.commitMessage = value; return }
+        if let value = DeployLogParser.marker("__COMMIT_AUTHOR__:", in: line) { summary.commitAuthor = value; return }
+        if let value = DeployLogParser.marker("__COMMIT__:", in: line) { summary.commit = value; return }
+        if line.hasPrefix("__") { return }
+
+        var text = Substring(line)
+        var seconds: Int?
+        if let stamp = DeployLogParser.timestamp(in: text) {
+            let time = stamp.0
+            // Deploys can run across midnight; keep the clock monotonic.
+            if let previousRaw, time < previousRaw { dayOffset += 86_400 }
+            previousRaw = time
+            seconds = time + dayOffset
+            text = stamp.1
+            if firstTime == nil { firstTime = seconds }
+            lastTime = seconds
+        }
+
+        if text.hasPrefix("[health]") {
+            summary.healthCheckRan = true
+            if text.contains("Auto-rollback") || text.contains("rolled back") { summary.rolledBack = true }
+            return
+        }
+        if text.hasPrefix("=== Deploy complete") {
+            summary.completed = true
+            return
+        }
+        if let step = DeployLogParser.stepHeader(in: text, startedAt: seconds) {
+            summary.totalSteps = max(summary.totalSteps ?? 0, step.total)
+            if let index = summary.steps.lastIndex(where: { $0.id == step.id }) {
+                // A repeated `[3b/8]` line continues the same step.
+                if step.isSkipped == false { summary.steps[index].isSkipped = false }
+            } else {
+                summary.steps.append(step)
+            }
+        }
+    }
+
+    /// The summary so far, with step durations and states for the given outcome.
+    public func summary(status: String?) -> DeployLogSummary {
+        var result = summary
+        if let firstTime, let lastTime {
+            result.durationSeconds = lastTime - firstTime
+        }
+        DeployLogParser.assignDurations(&result, endedAt: lastTime)
+        DeployLogParser.assignStates(&result, status: status)
+        return result
     }
 }
 
