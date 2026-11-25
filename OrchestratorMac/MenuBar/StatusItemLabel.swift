@@ -11,7 +11,11 @@ struct StatusItemLabel: View {
         let state = StatusItemState(environment: environment)
         HStack(spacing: 4) {
             OrchestratorLogo(style: .monochrome(.primary), size: 17)
-            if let mark = state.mark {
+            if state.isPaused {
+                Image(systemName: "pause.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            } else if let mark = state.mark {
                 StatusMarkView(mark: mark, size: 13)
             }
             if state.count > 0 {
@@ -35,6 +39,7 @@ struct StatusItemState {
     var mark: HealthMark?
     var count: Int
     var accessibilityLabel: String
+    var isPaused = false
 
     init(environment: AppEnvironment) {
         let store = environment.store
@@ -42,6 +47,13 @@ struct StatusItemState {
             mark = nil
             count = 0
             accessibilityLabel = "Orchestrator, signed out"
+            return
+        }
+        if environment.scheduler.isPaused {
+            mark = nil
+            count = 0
+            isPaused = true
+            accessibilityLabel = "Orchestrator, monitoring paused"
             return
         }
         if store.isStale {

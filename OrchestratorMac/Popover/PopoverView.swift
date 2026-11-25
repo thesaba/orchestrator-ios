@@ -55,10 +55,17 @@ struct PopoverView: View {
             }
         }
 
-        PopoverFooter(store: store, shortcut: environment.settings.paletteShortcut) {
-            environment.statusItem?.closePopover()
-            environment.palette.show()
+        if environment.scheduler.isPaused {
+            HStack(spacing: 6) {
+                Image(systemName: "pause.circle.fill")
+                Text("Monitoring is paused.")
+                Button("Resume") { environment.scheduler.resume() }
+                    .buttonStyle(.link)
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(.secondary)
         }
+        PopoverFooter(store: store, isVisible: state.isVisible)
     }
 }
 

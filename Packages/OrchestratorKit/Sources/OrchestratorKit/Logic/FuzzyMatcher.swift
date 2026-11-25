@@ -1,7 +1,7 @@
 import Foundation
 
-/// Fuzzy matching for the command palette: every query token has to match the text, so
-/// "dep ci" finds "Deploy citynet.ge". Tokens may come in any order.
+/// Fuzzy matching (Shortcuts' site search): every query token has to match the text, so
+/// "ci net" finds "citynet.ge". Tokens may come in any order.
 ///
 /// Per token, the best of:
 /// - prefix of a word ("dep" in "Deploy"), best;

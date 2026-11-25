@@ -1,7 +1,7 @@
 import OrchestratorKit
 import SwiftUI
 
-/// Account, the palette shortcut, refresh intervals, notification kinds, open at login.
+/// Account, SSH user, refresh intervals, notification kinds, open at login.
 struct SettingsView: View {
     let environment: AppEnvironment
 
@@ -29,16 +29,6 @@ private struct GeneralSettingsView: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Command palette") {
-                    ShortcutRecorder(combo: $settings.paletteShortcut) { recording in
-                        environment.palette.suspendShortcut(recording)
-                    }
-                }
-                if environment.shortcutUnavailable {
-                    Text("This shortcut is taken by another app or the system. Choose another one.")
-                        .font(.caption)
-                        .foregroundStyle(Color.statusWarningText)
-                }
                 TextField("SSH user for \(APIConfig.baseURL.host() ?? "the panel server")", text: $settings.localSSHUser)
             } footer: {
                 Text("SSH opens Terminal with your own keys. Remote servers use the user stored in the panel.")
@@ -85,7 +75,7 @@ private struct GeneralSettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear { launchAtLogin.refresh() }
-        .onChange(of: settings.paletteShortcut) { environment.applyShortcut() }
+
     }
 
     private static func label(_ seconds: Int) -> String {
@@ -122,12 +112,31 @@ private struct NotificationSettingsView: View {
 
 private struct AccountSettingsView: View {
     let environment: AppEnvironment
+
+    static var version: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return "\(short) (\(build))"
+    }
     @State private var confirmingSignOut = false
 
     private var session: Session { environment.session }
 
     var body: some View {
         Form {
+            Section {
+                HStack(spacing: 12) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 48, height: 48)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Orchestrator").font(.headline)
+                        Text("Version \(Self.version)").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
             Section {
                 LabeledContent("Panel", value: APIConfig.baseURL.host() ?? APIConfig.baseURL.absoluteString)
                 switch session.phase {
@@ -139,7 +148,7 @@ private struct AccountSettingsView: View {
                     LabeledContent("Account", value: "Signed out")
                 }
             } footer: {
-                Text("The token is stored in the Keychain and shared only with the Orchestrator widgets.")
+                Text("The token is stored in this Mac's login keychain and used only by this app.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

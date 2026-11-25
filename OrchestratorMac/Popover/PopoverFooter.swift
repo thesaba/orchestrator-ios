@@ -4,11 +4,11 @@ import SwiftUI
 /// "Updated 5 s ago", or the last good time and the reason when a refresh failed.
 struct PopoverFooter: View {
     let store: MonitorStore
-    var shortcut: KeyCombo?
-    var openPalette: () -> Void = {}
+    /// The relative time only ticks while the popover is on screen.
+    var isVisible: Bool
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        TimelineView(.periodic(from: .now, by: isVisible ? 1 : 86_400)) { context in
             HStack(spacing: 6) {
                 if let error = store.lastError {
                     Image(systemName: "exclamationmark.triangle")
@@ -22,16 +22,6 @@ struct PopoverFooter: View {
                     Text("Loading…")
                 }
                 Spacer(minLength: 0)
-                if let shortcut {
-                    Button(action: openPalette) {
-                        HStack(spacing: 6) {
-                            KeyCap(text: shortcut.displayString)
-                            Text("Command palette")
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Command palette, \(shortcut.accessibilityName)")
-                }
             }
             .font(.system(size: 11))
             .foregroundStyle(.secondary)

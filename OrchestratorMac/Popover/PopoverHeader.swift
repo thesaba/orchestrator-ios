@@ -9,6 +9,8 @@ struct PopoverHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            OrchestratorLogo(size: 30)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Orchestrator")
                     .font(.system(size: 15, weight: .bold))

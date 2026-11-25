@@ -6,7 +6,8 @@ import OrchestratorKit
 /// Every action that changes production shows a confirmation naming its consequence first;
 /// rollback, maintenance mode and destructive Artisan commands then also require Touch ID
 /// or the account password. Nothing here runs on its own: every entry point is a click,
-/// a key press in the palette or a notification button.
+/// a menu item in the popover, a Shortcuts action (after the system confirmation) or a
+/// notification button.
 @MainActor
 final class CommandExecutor {
     private let environment: AppEnvironment
@@ -20,55 +21,71 @@ final class CommandExecutor {
     private var store: MonitorStore { environment.store }
     private var logs: LogCoordinator { environment.logs }
 
-    // MARK: - Palette entry point
-
-    /// - Parameter showFullLog: ⌘Return — open the full log window instead of the compact panel.
-    func run(_ command: PaletteCommand, showFullLog: Bool = false) async {
-        environment.settings.recordRecent(command.id)
-        switch command.kind {
-        case .deploy(let siteID):                  await deploy(siteID: siteID, ref: nil, showFullLog: showFullLog)
-        case .rollback(let siteID):                await rollback(siteID: siteID, showFullLog: showFullLog)
-        case .clearCache(let siteID):              await runArtisan(siteID: siteID, command: "optimize:clear", showFullLog: showFullLog)
-        case .restartQueue(let siteID):            await runArtisan(siteID: siteID, command: "queue:restart", showFullLog: showFullLog)
-        case .maintenance(let siteID, let enable): await setMaintenance(siteID: siteID, enable: enable)
-        case .renewCertificate(let siteID):        await renewCertificate(siteID: siteID)
-        case .artisan:                             break // handled by the palette's command picker
-        case .ssh(let serverID):                   await openSSH(serverID: serverID)
-        case .siteLogs(let siteID):                environment.windows.showSiteLogs(siteID: siteID, domain: domain(of: siteID))
-        case .lastDeployLog(let siteID):           logs.showWindow(siteID: siteID, domain: domain(of: siteID))
-        case .openSite(let siteID):                WebPanel.open(.site(id: siteID))
-        case .openServer(let serverID):            WebPanel.open(.server(id: serverID))
-        }
-    }
-
     // MARK: - Deploy
 
     func deploy(siteID: Int, ref: String?, showFullLog: Bool = false) async {
-        let site = listing(siteID)
         let domain = domain(of: siteID)
-        let what = ref.map { "\($0)" } ?? site?.branch.map { "the latest commit of \($0)" } ?? "the latest commit"
-        let confirmation = Confirmation(
+        guard await confirm(deployConfirmation(siteID: siteID, ref: ref), reason: "deploy \(domain)") else { return }
+        do {
+            _ = try await performDeploy(siteID: siteID, ref: ref, showLog: true, showFullLog: showFullLog)
+        } catch {
+            AlertPresenter.showError("Could not deploy \(domain)", APIError.wrap(error).errorDescription)
+        }
+    }
+
+    /// Site logs, the deploy log and the web panel: reading only, no confirmation.
+    func showSiteLogs(siteID: Int) {
+        environment.windows.showSiteLogs(siteID: siteID, domain: domain(of: siteID))
+    }
+
+    /// The question asked before a deploy, shared by the dialog and the Shortcuts action.
+    func deployConfirmation(siteID: Int, ref: String?) -> Confirmation {
+        let domain = domain(of: siteID)
+        let what = ref.map { "\($0)" } ?? listing(siteID)?.branch.map { "the latest commit of \($0)" } ?? "the latest commit"
+        return Confirmation(
             title: "Deploy \(domain)?",
             consequence: "Ships \(what) to \(domain). Dependencies install, migrations run and the site "
                 + "switches to the new release at the end. If a deploy is already running, this one is queued.",
             confirmTitle: "Deploy"
         )
-        guard await confirm(confirmation, reason: "deploy \(domain)") else { return }
+    }
 
-        do {
-            let reply = try await api.requestDeploy(siteID: siteID, ref: ref)
-            environment.scheduler.requestSiteList()
-            if reply.queued {
-                environment.notifications.postInfo(title: "Deploy queued · \(domain)",
-                                                   body: reply.message ?? "It starts when the current deploy finishes.")
-                return
-            }
+    /// Starts the deploy. Callers must have confirmed first.
+    @discardableResult
+    func performDeploy(siteID: Int, ref: String?, showLog: Bool, showFullLog: Bool = false) async throws -> DeployStartResponse {
+        let domain = domain(of: siteID)
+        let reply = try await api.requestDeploy(siteID: siteID, ref: ref)
+        environment.scheduler.requestSiteList()
+        if reply.queued {
+            environment.notifications.postInfo(title: "Deploy queued · \(domain)",
+                                               body: reply.message ?? "It starts when the current deploy finishes.")
+        } else if showLog {
             let session = LogSession(siteID: siteID, domain: domain, kind: .deploy,
-                                     branch: ref ?? site?.branch, deploymentID: reply.deploymentId)
+                                     branch: ref ?? listing(siteID)?.branch, deploymentID: reply.deploymentId)
             logs.start(session, showFullLog: showFullLog)
-        } catch {
-            AlertPresenter.showError("Could not deploy \(domain)", APIError.wrap(error).errorDescription)
         }
+        return reply
+    }
+
+    /// Asks for a branch, tag or commit (branches listed with a GET), then the usual confirmation.
+    func deployChoosingRef(siteID: Int) async {
+        let domain = domain(of: siteID)
+        let current = listing(siteID)?.branch
+        let branches = (try? await api.branches(siteID: siteID)) ?? []
+        let ordered = branches.sorted { lhs, rhs in
+            if lhs == current { return true }
+            if rhs == current { return false }
+            return lhs < rhs
+        }
+        environment.statusItem?.closePopover()
+        guard let ref = AlertPresenter.askRef(
+            title: "Deploy which ref to \(domain)?",
+            message: branches.isEmpty
+                ? "Type a branch, tag or commit. The panel listed no branches (a private repository without a token)."
+                : "Choose a branch, or type a tag or commit.",
+            options: ordered, initial: current
+        ) else { return }
+        await deploy(siteID: siteID, ref: ref)
     }
 
     /// Retry after a failed deploy: the same branch again, so a fix pushed meanwhile ships.
@@ -125,6 +142,18 @@ final class CommandExecutor {
 
     func runArtisan(siteID: Int, command: String, showFullLog: Bool = false) async {
         let domain = domain(of: siteID)
+        guard await confirm(artisanConfirmation(siteID: siteID, command: command),
+                            reason: "run \(command) on \(domain)") else { return }
+        do {
+            try await performArtisan(siteID: siteID, command: command, showLog: true)
+        } catch {
+            AlertPresenter.showError("Could not run \(command)", APIError.wrap(error).errorDescription)
+        }
+    }
+
+    /// The question asked before an Artisan command, shared by the dialog and Shortcuts.
+    func artisanConfirmation(siteID: Int, command: String) -> Confirmation {
+        let domain = domain(of: siteID)
         var consequence: String
         switch command {
         case "optimize:clear":
@@ -142,21 +171,16 @@ final class CommandExecutor {
             consequence += " It changes the production database or stops running workers."
         }
         let destructive = ArtisanSafety.needsAuthentication(command)
-        let confirmation = Confirmation(
-            title: "Run \(command) on \(domain)?",
-            consequence: consequence,
-            confirmTitle: "Run",
-            isDestructive: destructive,
-            requiresAuthentication: destructive
-        )
-        guard await confirm(confirmation, reason: "run \(command) on \(domain)") else { return }
+        return Confirmation(title: "Run \(command) on \(domain)?", consequence: consequence, confirmTitle: "Run",
+                            isDestructive: destructive, requiresAuthentication: destructive)
+    }
 
-        do {
-            try await api.runArtisan(siteID: siteID, command: command)
-            logs.start(LogSession(siteID: siteID, domain: domain, kind: .artisan(command: command)),
+    /// Starts the command. Callers must have confirmed (and authenticated when required).
+    func performArtisan(siteID: Int, command: String, showLog: Bool) async throws {
+        try await api.runArtisan(siteID: siteID, command: command)
+        if showLog {
+            logs.start(LogSession(siteID: siteID, domain: domain(of: siteID), kind: .artisan(command: command)),
                        showFullLog: false)
-        } catch {
-            AlertPresenter.showError("Could not run \(command)", APIError.wrap(error).errorDescription)
         }
     }
 

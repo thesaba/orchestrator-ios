@@ -32,7 +32,8 @@ public final class LogBuffer {
             lines.append(LogLine(id: nextID, text: clean))
             nextID += 1
         }
-        if lines.count > limit {
+        // Trim in batches: dropping one line per append shifts the whole array every time.
+        if lines.count > limit + limit / 10 {
             lines.removeFirst(lines.count - limit)
         }
     }
@@ -56,6 +57,8 @@ public enum ANSI {
 
     /// Deploy output comes from real shell tools, so it carries colour escapes.
     public static func strip(_ text: String) -> String {
+        // Most lines carry no escape codes: skip the regular expression for them.
+        guard text.utf8.contains(0x1B) || text.utf8.contains(0x0D) else { return text }
         guard let pattern else { return text }
         let range = NSRange(text.startIndex..., in: text)
         return pattern.stringByReplacingMatches(in: text, range: range, withTemplate: "")

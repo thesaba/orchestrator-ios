@@ -51,16 +51,17 @@ public final class Keychain: @unchecked Sendable {
 
     /// Defaults come from `SharedContainer`: on iOS that is the bundle identifier and no
     /// access group (unchanged), on the Mac the group shared with the widget extension.
-    /// macOS only: whether the data protection keychain (needed for the shared access group)
-    /// is usable. It requires a provisioning profile; a build signed without one falls back
-    /// to the app's own login-keychain item, so sign-in still works, unshared.
+    /// macOS only: whether the data protection keychain (needed for a shared access group) is
+    /// in use. Only when an access group is configured and the signature allows it (that takes
+    /// a provisioning profile); otherwise the item lives in the login keychain, app-only.
     private let usesDataProtection: Bool
 
     public init(service: String = SharedContainer.keychainService,
                 accessGroup: String? = SharedContainer.keychainAccessGroup) {
         self.service = service
         #if os(macOS)
-        let available = Self.dataProtectionKeychainAvailable(service: service, accessGroup: accessGroup)
+        let available = accessGroup != nil
+            && Self.dataProtectionKeychainAvailable(service: service, accessGroup: accessGroup)
         self.usesDataProtection = available
         self.accessGroup = available ? accessGroup : nil
         #else

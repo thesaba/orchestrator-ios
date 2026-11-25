@@ -14,4 +14,6 @@ enum PopoverSegment: String, CaseIterable, Identifiable {
 @Observable
 final class PopoverState {
     var segment: PopoverSegment = .overview
+    /// Clocks and other per-second updates run only while the popover is on screen.
+    var isVisible = false
 }
