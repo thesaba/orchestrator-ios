@@ -1,4 +1,5 @@
 import SwiftUI
+import OrchestratorKit
 
 struct RootView: View {
     @Environment(Session.self) private var session

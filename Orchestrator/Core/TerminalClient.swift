@@ -1,4 +1,5 @@
 import Foundation
+import OrchestratorKit
 
 /// Interactive shell over `wss://…/api/terminal/:siteId?token=…`.
 ///

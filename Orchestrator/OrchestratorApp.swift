@@ -1,4 +1,5 @@
 import SwiftUI
+import OrchestratorKit
 
 @main
 struct OrchestratorApp: App {

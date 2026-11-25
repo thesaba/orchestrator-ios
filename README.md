@@ -30,6 +30,7 @@
 
 - [✨ Overview](#-overview)
 - [🎯 Features](#-features)
+- [🖥️ Orchestrator for Mac](#️-orchestrator-for-mac)
 - [🏗️ Architecture](#️-architecture)
 - [🧰 Tech Stack](#-tech-stack)
 - [✅ Requirements](#-requirements)
@@ -130,6 +131,44 @@ It talks to the same REST API as the React dashboard and **changes nothing on th
 
 ---
 
+## 🖥️ Orchestrator for Mac
+
+A menu bar companion (`OrchestratorMac` target) that watches servers, sites and alerts without opening the web panel. It is an agent app: no Dock icon, everything starts from the menu bar item.
+
+**Phase 1 (current)** is read-only:
+
+- 🟢 **Menu bar item** — app glyph, a status mark (triangle for warnings, cross for failures, arrow while a deploy runs, dashed ring when data is stale) and the number of open alerts.
+- 🪟 **Popover** — Servers / Sites / Alerts tiles, Overview · Servers · Sites · Alerts, *Needs attention*, CPU and RAM meters, the running deploy's current step. Buttons open the web panel for now.
+- 🔔 **Notifications** — deploy results, new fleet alerts (with *Mute for 1 hour*), certificates within 14 days of expiry (with *Remind tomorrow*). Mutes and snoozes are local.
+- ⚙️ **Settings** — account, refresh intervals, notification kinds, open at login.
+
+**Refresh.** Only GET requests. Fast interval while the popover is open (15 s), slow in the background (2 min), paused during sleep and while offline. `GET /sites` carries every site's last deploy log, so it has its own interval (5 min), refreshes on popover open when older than a minute, and every 30 s while a deploy runs with the popover open.
+
+| Data | Endpoint |
+|---|---|
+| Servers, CPU/RAM/disk | `GET /fleet/servers` (admin) |
+| Server alerts | `GET /fleet/alerts?active=1` (admin) |
+| Certificates | `GET /monitor/ssl` |
+| Site up/down | `GET /uptime` |
+| Branch, commit, running deploy step | `GET /sites` (newest deployment + log) |
+| Deploy results | `GET /notifications` |
+
+**Setup.** Select the `OrchestratorMac` scheme, set your team, run, and paste a personal access token in the sign-in window. Fleet data needs an **admin** account.
+
+> 🔐 **Keychain sharing needs a provisioning profile.** The token is meant to live in a keychain access group shared with the widget extension (phase 3), which on macOS requires the data protection keychain and therefore a profile. A build signed without one falls back to the app's own keychain item: sign-in works, sharing does not.
+
+Info.plist keys read by `OrchestratorKit.SharedContainer` (set in `Config/OrchestratorMac-Info.plist`):
+
+| Key | Value |
+|---|---|
+| `OrchestratorAppGroup` | `$(TeamIdentifierPrefix)digital.abesadze.orchestrator` |
+| `OrchestratorKeychainAccessGroup` | `$(TeamIdentifierPrefix)digital.abesadze.orchestrator` |
+| `OrchestratorKeychainService` | `digital.abesadze.orchestrator.mac` |
+
+The iOS app sets none of them and keeps its original keychain item.
+
+---
+
 ## 🏗️ Architecture
 
 ```mermaid
@@ -200,7 +239,7 @@ open Orchestrator.xcodeproj
 
 **1️⃣ Point it at your panel**
 
-Edit `Orchestrator/Core/APIConfig.swift`:
+Edit `Packages/OrchestratorKit/Sources/OrchestratorKit/Networking/APIConfig.swift` (shared by both apps):
 
 ```swift
 static let baseURL = URL(string: "https://panel.example.com")!
@@ -237,24 +276,31 @@ Prefer email and password? Tap **Sign in with email instead** — two-factor cod
 
 ```
 orchestrator-ios/
-├── Orchestrator/
-│   ├── Core/                       # networking, auth, streaming
-│   │   ├── APIClient.swift         # bearer, typed errors, SSE, downloads
-│   │   ├── OrchestratorAPI*.swift  # typed façade, split by domain
-│   │   ├── Keychain · TokenStore   # token storage + biometric sealing
-│   │   ├── AppLock.swift           # Face ID / Touch ID / passcode gate
-│   │   ├── StreamRunner.swift      # one driver for every /stream route
-│   │   ├── ActionRunner.swift      # in-flight + error state for mutations
-│   │   └── TerminalClient.swift    # WebSocket shell
-│   ├── Models/                     # Codable models, one file per domain
-│   ├── DesignSystem/               # status tones, cards, log console, logo
+├── Packages/OrchestratorKit/       # shared by the iOS and Mac apps
+│   ├── Sources/OrchestratorKit/
+│   │   ├── Networking/             # APIClient (bearer, typed errors, SSE), JSON helpers
+│   │   ├── Auth/                   # Keychain, TokenStore, Session, SharedContainer
+│   │   ├── API/                    # OrchestratorAPI façade, split by domain
+│   │   ├── Runners/                # StreamRunner, ActionRunner
+│   │   ├── Models/                 # Codable models, one file per domain
+│   │   ├── Logic/                  # status aggregation, deploy log parser
+│   │   └── Design/                 # StatusTone, formatters, LogBuffer, logo
+│   └── Tests/OrchestratorKitTests/ # swift test
+├── Orchestrator/                   # iOS app
+│   ├── Core/                       # AppLock, TerminalClient (iOS only)
+│   ├── DesignSystem/               # cards, state views, log console (iOS views)
 │   ├── Features/                   # one folder per screen area
 │   │   ├── Overview · Sites · Monitor · Inbox · More
 │   │   ├── Deploy · Artisan · Workers · Config · Files · Database
 │   │   ├── Billing · Infrastructure · Workspace · Admin · Terminal
 │   │   └── Auth/                   # sign-in and lock screens
 │   └── Assets.xcassets/
-├── tools/                          # API introspection helpers
+├── OrchestratorMac/                # macOS menu bar app
+│   ├── App/ · MenuBar/ · Popover/  # entry point, status item, popover
+│   ├── Monitoring/                 # MonitorStore, RefreshScheduler, connectivity
+│   ├── Notifications/ · Settings/ · Windows/ · DesignSystem/ · Support/
+├── Config/                         # Mac Info.plist and entitlements
+├── tools/                          # API introspection helpers (GET only)
 └── Orchestrator.xcodeproj
 ```
 
@@ -262,7 +308,7 @@ orchestrator-ios/
 
 ## 🔌 API Coverage
 
-Every endpoint the panel exposes has a typed method in `Core/OrchestratorAPI*.swift`.
+Every endpoint the panel exposes has a typed method in `Packages/OrchestratorKit/Sources/OrchestratorKit/API/OrchestratorAPI*.swift`.
 
 | Domain | Covered |
 |--------|---------|
@@ -284,7 +330,8 @@ Every endpoint the panel exposes has a typed method in `Core/OrchestratorAPI*.sw
 
 ## 🗺️ Roadmap
 
-- [ ] 🧪 Unit tests for decoding, date parsing and the lock state machine
+- [x] 🧪 Package tests for decoding, status aggregation, deploy log parsing and formatting
+- [ ] 🧪 Tests for date parsing and the lock state machine
 - [ ] 🖼️ Full terminal emulation (the current console strips ANSI rather than interpreting it)
 - [ ] ➕ Site creation, cloning and provisioning from the app
 - [ ] 🔔 Push notifications for failed deploys and downtime
@@ -303,13 +350,21 @@ Contributions are welcome! 🎉
 3. ✅ Commit your changes — `git commit -m "feat: add amazing thing"`
 4. 🚀 Push and open a Pull Request
 
-Before submitting, make sure the project builds cleanly:
+Before submitting, make sure both apps build cleanly and the package tests pass:
 
 ```bash
 xcodebuild -project Orchestrator.xcodeproj \
            -scheme Orchestrator \
            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
            build
+```
+
+```bash
+xcodebuild -project Orchestrator.xcodeproj -scheme OrchestratorMac -destination 'platform=macOS' build
+```
+
+```bash
+cd Packages/OrchestratorKit && swift test
 ```
 
 Please keep PRs focused and follow the existing structure — new endpoints belong in the matching `OrchestratorAPI+*.swift` extension, and any action that changes server state needs a confirmation dialog that spells out what it does.

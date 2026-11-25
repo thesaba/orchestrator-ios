@@ -1,4 +1,5 @@
 import SwiftUI
+import OrchestratorKit
 
 /// A SQL console against a live production database, so the destructive path is
 /// deliberately awkward: writes need a second confirmation naming the statement.

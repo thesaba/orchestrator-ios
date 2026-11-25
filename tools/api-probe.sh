@@ -68,6 +68,10 @@ fetch telegram_me        /telegram/me
 fetch tasks              /tasks
 fetch notes              /notes
 fetch calendar           /calendar/events
+# Fleet monitoring (admin only) — read by the Mac app's popover.
+fetch fleet_servers      /fleet/servers
+fetch fleet_alerts_open  "/fleet/alerts?active=1&limit=20"
+fetch fleet_alerts_all   "/fleet/alerts?limit=5"
 
 # --- per-site endpoints, using the first site returned by /sites ---
 SITE_ID=$(curl -sS -m 30 -H "Authorization: Bearer $ORCH_TOKEN" -H 'Accept: application/json' "$BASE/sites" \
@@ -92,6 +96,7 @@ if [ -n "${SITE_ID:-}" ]; then
   fetch site_detail       "$S"
   fetch site_releases     "$S/releases"
   fetch site_deploy_pend  "$S/deploy/pending"
+  fetch site_branches     "$S/branches"
   fetch site_heatmap      "$S/deployments/heatmap"
   fetch site_test_stats   "$S/test-stats"
   fetch site_nginx        "$S/config/nginx"
