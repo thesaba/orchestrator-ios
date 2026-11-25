@@ -72,6 +72,15 @@ public enum DeployLogParser {
         return summary
     }
 
+    /// "Running migrations" for `[6/8] Running migrations...`, "Deploying branch 'main' …"
+    /// for `=== … ===`; nil for other lines.
+    public static func stepHeaderTitle(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        if let step = stepHeader(in: Substring(trimmed), startedAt: nil) { return step.title }
+        guard trimmed.hasPrefix("==") && trimmed.hasSuffix("==") else { return nil }
+        return trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "= "))
+    }
+
     // MARK: - Lines
 
     private static func marker(_ prefix: String, in line: String) -> String? {

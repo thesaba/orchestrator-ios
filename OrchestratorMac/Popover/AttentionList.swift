@@ -1,7 +1,7 @@
 import OrchestratorKit
 import SwiftUI
 
-/// Tinted card with one row per alert. In this phase the buttons only open the web panel.
+/// Tinted card with one row per alert. "Renew" asks for confirmation; "View" opens the web panel.
 struct AttentionList: View {
     let environment: AppEnvironment
     var items: [AttentionItem]
@@ -13,7 +13,10 @@ struct AttentionList: View {
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     if index > 0 { Divider() }
-                    AttentionRow(item: item)
+                    AttentionRow(item: item) { siteID in
+                        let executor = environment.executor
+                        Task { await executor.renewCertificate(siteID: siteID) }
+                    }
                 }
             }
             .card(tint: items.contains { $0.severity == .failure } ? .tintDanger : .tintWarning)
@@ -23,6 +26,7 @@ struct AttentionList: View {
 
 private struct AttentionRow: View {
     var item: AttentionItem
+    var renew: (Int) -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -39,10 +43,12 @@ private struct AttentionRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
 
-            Button(buttonTitle) { WebPanel.open(destination) }
-                .buttonStyle(RowButtonStyle())
-                .help("Open in the web panel")
-                .accessibilityLabel("\(buttonTitle) \(item.source) in the web panel")
+            Button(buttonTitle) {
+                if case .certificate(let siteID) = item.subject { renew(siteID) } else { WebPanel.open(destination) }
+            }
+            .buttonStyle(RowButtonStyle())
+            .help(isCertificate ? "Renew the certificate (asks for confirmation)" : "Open in the web panel")
+            .accessibilityLabel(isCertificate ? "Renew the certificate of \(item.source)" : "View \(item.source) in the web panel")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -53,10 +59,12 @@ private struct AttentionRow: View {
         return "\(item.source) · \(RelativeTime.ago(since))"
     }
 
-    private var buttonTitle: String {
-        if case .certificate = item.subject { return "Renew" }
-        return "View"
+    private var isCertificate: Bool {
+        if case .certificate = item.subject { return true }
+        return false
     }
+
+    private var buttonTitle: String { isCertificate ? "Renew" : "View" }
 
     private var destination: WebPanel.Destination {
         switch item.subject {

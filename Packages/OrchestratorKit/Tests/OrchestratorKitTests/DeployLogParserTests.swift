@@ -76,3 +76,28 @@ struct DeployLogParserTests {
         #expect(DeployLogParser.timestamp(in: "[1:2:3] x") == nil)
     }
 }
+
+@Suite("Log line styles")
+struct LogLineStyleTests {
+    @Test func splitsClock() {
+        let parts = LogLineStyle.split("[16:04:10] SQLSTATE[42S21]: Column already exists")
+        #expect(parts.time == "16:04:10")
+        #expect(parts.text == "SQLSTATE[42S21]: Column already exists")
+        #expect(LogLineStyle.split("plain").time == nil)
+    }
+
+    @Test(arguments: [
+        ("[6/8] Running migrations...", LogLineStyle.step),
+        ("=== Deploying branch 'main' ===", .step),
+        ("SQLSTATE[42S21]: Column already exists", .error),
+        ("  ✓ Tests passed.", .success),
+        ("  ⚠ Tests FAILED — continuing anyway", .warning),
+        ("WARN: chown failed (continuing)", .error),
+        ("Generating optimized autoload files", .plain),
+        ("Kept 5 most recent releases", .plain),
+        ("Nothing to migrate. Errorless run", .plain)
+    ])
+    func classifies(text: String, expected: LogLineStyle) {
+        #expect(LogLineStyle.classify(text) == expected)
+    }
+}

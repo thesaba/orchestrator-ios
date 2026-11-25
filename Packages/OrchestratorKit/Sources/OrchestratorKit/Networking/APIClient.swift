@@ -124,43 +124,15 @@ public final class APIClient: @unchecked Sendable {
                     let (bytes, response) = try await self.streamSession.bytes(for: request)
                     try self.validate(response, data: Data(), path: path)
 
-                    var name: String?
-                    var identifier: String?
-                    var dataLines: [String] = []
-
-                    func flush() {
-                        guard !dataLines.isEmpty else { return }
-                        continuation.yield(SSEEvent(event: name, id: identifier, data: dataLines.joined(separator: "\n")))
-                        name = nil
-                        identifier = nil
-                        dataLines.removeAll()
-                    }
-
-                    for try await line in bytes.lines {
-                        try Task.checkCancellation()
-
-                        if line.isEmpty { flush(); continue }
-                        if line.hasPrefix(":") { continue }          // heartbeat / comment
-
-                        let field: String
-                        var value: String
-                        if let colon = line.firstIndex(of: ":") {
-                            field = String(line[line.startIndex..<colon])
-                            value = String(line[line.index(after: colon)...])
-                            if value.hasPrefix(" ") { value.removeFirst() }
-                        } else {
-                            field = line
-                            value = ""
-                        }
-
-                        switch field {
-                        case "data":  dataLines.append(value)
-                        case "event": name = value
-                        case "id":    identifier = value
-                        default:      break
+                    // Parse bytes directly: `bytes.lines` drops the blank lines that end SSE events.
+                    var parser = SSEParser()
+                    for try await byte in bytes {
+                        if let event = parser.feed(byte) {
+                            try Task.checkCancellation()
+                            continuation.yield(event)
                         }
                     }
-                    flush()
+                    if let event = parser.finish() { continuation.yield(event) }
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: APIError.wrap(error))

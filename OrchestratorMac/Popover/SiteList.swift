@@ -3,8 +3,8 @@ import SwiftUI
 
 /// Site rows. A deploying site gets the tinted row with its current step and progress.
 ///
-/// Read-only for now: "Deploy" and "Show log" open the site in the web panel. Deploying from
-/// the Mac and the in-app log arrive with the confirmation flow.
+/// "Deploy" asks for confirmation before anything runs; "Show log" attaches to the running
+/// deploy's stream and opens the compact log panel.
 struct SiteList: View {
     let environment: AppEnvironment
     var sites: [SiteStatus]
@@ -17,9 +17,12 @@ struct SiteList: View {
                 ForEach(Array(sites.enumerated()), id: \.element.id) { index, site in
                     if index > 0 { Divider() }
                     if site.isDeploying {
-                        DeployingSiteRow(site: site)
+                        DeployingSiteRow(site: site) { environment.logs.showLiveDeploy(for: site) }
                     } else {
-                        SiteRow(site: site)
+                        SiteRow(site: site) {
+                            let executor = environment.executor
+                            Task { await executor.deploy(siteID: site.id, ref: nil) }
+                        }
                     }
                 }
             }
@@ -30,6 +33,7 @@ struct SiteList: View {
 
 private struct SiteRow: View {
     var site: SiteStatus
+    var deploy: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -46,10 +50,11 @@ private struct SiteRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
 
-            Button("Deploy") { WebPanel.open(.site(id: site.id)) }
+            Button("Deploy", action: deploy)
                 .buttonStyle(RowButtonStyle())
-                .help("Open \(site.domain) in the web panel to deploy")
-                .accessibilityLabel("Deploy \(site.name) in the web panel")
+                .help("Deploy \(site.domain) (asks for confirmation)")
+                .accessibilityLabel("Deploy \(site.name)")
+                .accessibilityHint("Asks for confirmation first")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
@@ -71,6 +76,7 @@ private struct SiteRow: View {
 
 private struct DeployingSiteRow: View {
     var site: SiteStatus
+    var showLog: () -> Void
 
     var body: some View {
         VStack(spacing: 7) {
@@ -88,10 +94,10 @@ private struct DeployingSiteRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityElement(children: .combine)
 
-                Button("Show log") { WebPanel.open(.site(id: site.id)) }
+                Button("Show log", action: showLog)
                     .buttonStyle(RowButtonStyle(prominent: true))
-                    .help("Open the running deploy in the web panel")
-                    .accessibilityLabel("Show the deploy log of \(site.name) in the web panel")
+                    .help("Open the live deploy log")
+                    .accessibilityLabel("Show the deploy log of \(site.name)")
             }
             if let progress = site.deploy?.progress {
                 ProgressBar(fraction: progress)

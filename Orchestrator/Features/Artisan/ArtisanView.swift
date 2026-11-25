@@ -29,15 +29,9 @@ final class ArtisanViewModel {
             .sorted { $0.group < $1.group }
     }
 
-    /// Commands that can lose data if run against production.
-    static let dangerous: Set<String> = [
-        "migrate:fresh", "migrate:refresh", "migrate:reset", "migrate:rollback",
-        "db:wipe", "db:seed", "cache:forget", "queue:flush"
-    ]
-
+    /// Commands that can lose data if run against production (shared with the Mac app).
     func isDangerous(_ command: String) -> Bool {
-        let root = command.split(separator: " ").first.map(String.init) ?? command
-        return Self.dangerous.contains(root)
+        ArtisanSafety.isDataLoss(command)
     }
 
     func load() async {

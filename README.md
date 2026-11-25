@@ -135,12 +135,25 @@ It talks to the same REST API as the React dashboard and **changes nothing on th
 
 A menu bar companion (`OrchestratorMac` target) that watches servers, sites and alerts without opening the web panel. It is an agent app: no Dock icon, everything starts from the menu bar item.
 
-**Phase 1 (current)** is read-only:
-
 - 🟢 **Menu bar item** — app glyph, a status mark (triangle for warnings, cross for failures, arrow while a deploy runs, dashed ring when data is stale) and the number of open alerts.
-- 🪟 **Popover** — Servers / Sites / Alerts tiles, Overview · Servers · Sites · Alerts, *Needs attention*, CPU and RAM meters, the running deploy's current step. Buttons open the web panel for now.
-- 🔔 **Notifications** — deploy results, new fleet alerts (with *Mute for 1 hour*), certificates within 14 days of expiry (with *Remind tomorrow*). Mutes and snoozes are local.
-- ⚙️ **Settings** — account, refresh intervals, notification kinds, open at login.
+- 🪟 **Popover** — Servers / Sites / Alerts tiles, Overview · Servers · Sites · Alerts, *Needs attention*, CPU and RAM meters, the running deploy's current step. *Deploy* and *Renew* run after a confirmation; *Show log* opens the live log.
+- ⌨️ **Command palette** — global shortcut (default **⌥ Space**, configurable in Settings). Fuzzy matching over verb and target (`dep ci` → *Deploy citynet.ge*), recently used commands rank higher. ↵ runs, ⌘↵ runs and opens the full log, ⌥↵ picks a branch, tag or commit for a deploy.
+  Commands: deploy, roll back, clear cache (`optimize:clear`), maintenance on/off, restart queue (`queue:restart`), any allow-listed Artisan command, renew SSL, SSH into a server (opens Terminal with your own keys), site logs, last deploy log, open in the web panel.
+- 📜 **Deploy log** — a compact floating panel (step progress, elapsed time, follow output, copy) that expands into a full window: steps with durations, previous deploys, search, errors only, and a failure banner with *Copy error*, *Retry deploy* and *Explain error* (the panel's AI).
+- 🔔 **Notifications** — deploy results (*Explain*, *Open log*, *Retry…*), new fleet alerts (*Open server*, *Mute for 1 hour*), certificates within 14 days of expiry (*Renew now…*, *Remind tomorrow*). Mutes and snoozes are local.
+- ⚙️ **Settings** — account, palette shortcut, SSH user for the panel's own server, refresh intervals, notification kinds, open at login.
+
+**Production safety.** Every action that changes production shows a confirmation naming its consequence. Rollback, maintenance mode and destructive Artisan commands (`migrate*`, `db:*`, `queue:flush`, `telescope:clear`, `horizon:terminate`, …) then also require **Touch ID or the account password**. Destructive confirmations never default to Return. Widgets and plain notification clicks never write; *Retry…* and *Renew now…* only open the confirmation. Streams are attached only on a user action, and closing a log panel never stops a deploy.
+
+| Action | Request |
+|---|---|
+| Deploy / Retry | `POST /sites/:id/deploy?ref=` |
+| Roll back | `GET /sites/:id/releases`, then `POST /sites/:id/rollback {release}` |
+| Maintenance | `POST /sites/:id/maintenance {action: "down" \| "up"}` |
+| Clear cache, restart queue, Artisan | `POST /sites/:id/artisan/run {command}` |
+| Renew SSL | `POST /sites/:id/ssl/renew` |
+| Explain error | `GET`, then if nothing is stored `POST /ai/explain-deploy/:deploymentId` |
+| Live logs | `GET /sites/:id/{deploy,artisan,ssl}/stream` (SSE) |
 
 **Refresh.** Only GET requests. Fast interval while the popover is open (15 s), slow in the background (2 min), paused during sleep and while offline. `GET /sites` carries every site's last deploy log, so it has its own interval (5 min), refreshes on popover open when older than a minute, and every 30 s while a deploy runs with the popover open.
 
@@ -298,6 +311,9 @@ orchestrator-ios/
 ├── OrchestratorMac/                # macOS menu bar app
 │   ├── App/ · MenuBar/ · Popover/  # entry point, status item, popover
 │   ├── Monitoring/                 # MonitorStore, RefreshScheduler, connectivity
+│   ├── Actions/                    # CommandExecutor, confirmations, Touch ID
+│   ├── Palette/ · Hotkey/          # command palette, global shortcut
+│   ├── DeployLog/                  # live sessions, compact panel, full window
 │   ├── Notifications/ · Settings/ · Windows/ · DesignSystem/ · Support/
 ├── Config/                         # Mac Info.plist and entitlements
 ├── tools/                          # API introspection helpers (GET only)
@@ -330,7 +346,7 @@ Every endpoint the panel exposes has a typed method in `Packages/OrchestratorKit
 
 ## 🗺️ Roadmap
 
-- [x] 🧪 Package tests for decoding, status aggregation, deploy log parsing and formatting
+- [x] 🧪 Package tests for decoding, status aggregation, deploy log parsing, fuzzy matching and formatting
 - [ ] 🧪 Tests for date parsing and the lock state machine
 - [ ] 🖼️ Full terminal emulation (the current console strips ANSI rather than interpreting it)
 - [ ] ➕ Site creation, cloning and provisioning from the app

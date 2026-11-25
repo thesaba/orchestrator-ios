@@ -13,6 +13,8 @@ public struct SiteStatus: Sendable, Hashable, Identifiable {
     /// When the newest deployment started.
     public var lastDeployAt: Date?
     public var lastDeployStatus: String?
+    /// The newest deployment's id, for its log and the AI explanation.
+    public var lastDeploymentID: Int?
     /// Parsed from the newest deployment's log, when the site list is loaded.
     public var deploy: DeployLogSummary?
 
@@ -20,7 +22,7 @@ public struct SiteStatus: Sendable, Hashable, Identifiable {
 
     public init(id: Int, name: String, domain: String, mark: HealthMark, label: String,
                 branch: String? = nil, shortCommit: String? = nil, lastDeployAt: Date? = nil,
-                lastDeployStatus: String? = nil, deploy: DeployLogSummary? = nil) {
+                lastDeployStatus: String? = nil, lastDeploymentID: Int? = nil, deploy: DeployLogSummary? = nil) {
         self.id = id
         self.name = name
         self.domain = domain
@@ -30,6 +32,7 @@ public struct SiteStatus: Sendable, Hashable, Identifiable {
         self.shortCommit = shortCommit
         self.lastDeployAt = lastDeployAt
         self.lastDeployStatus = lastDeployStatus
+        self.lastDeploymentID = lastDeploymentID
         self.deploy = deploy
     }
 }

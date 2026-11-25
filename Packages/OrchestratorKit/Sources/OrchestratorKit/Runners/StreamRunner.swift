@@ -86,6 +86,13 @@ public final class StreamRunner {
                 }
 
                 guard reconnectOnDrop, !Task.isCancelled else { break }
+                // A stream that keeps ending without `done` must not reconnect forever.
+                if attempt >= 4 {
+                    self.streamError = "The stream ended without a result."
+                    self.outcome = .failed
+                    self.isStreaming = false
+                    return
+                }
                 attempt += 1
                 self.reconnectCount = attempt
                 self.buffer.append("— reconnecting (\(attempt)/4) —")

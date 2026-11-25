@@ -12,7 +12,13 @@ final class AppEnvironment {
     let scheduler: RefreshScheduler
     let notifications: NotificationCoordinator
     let windows: WindowCoordinator
+    let api = OrchestratorAPI.shared
+    private(set) lazy var executor = CommandExecutor(environment: self)
+    private(set) lazy var logs = LogCoordinator(environment: self)
+    private(set) lazy var palette = PaletteController(environment: self)
     private(set) var statusItem: StatusItemController?
+    /// True when the system refused the palette shortcut (another app owns it).
+    private(set) var shortcutUnavailable = false
 
     private var sessionObservation: ObservationLoop?
 
@@ -30,10 +36,16 @@ final class AppEnvironment {
         }
     }
 
+    /// Registers (or re-registers) the palette's global shortcut from settings.
+    func applyShortcut() {
+        shortcutUnavailable = !palette.registerShortcut()
+    }
+
     func start() {
         connectivity.start()
         statusItem = StatusItemController(environment: self)
         notifications.start()
+        applyShortcut()
 
         sessionObservation = ObservationLoop { [weak self] in
             _ = self?.session.phase
@@ -87,5 +99,21 @@ extension AppEnvironment: NotificationRouter {
 
     func openWebPanel(_ destination: WebPanel.Destination) {
         WebPanel.open(destination)
+    }
+
+    func openDeployLog(siteID: Int, explain: Bool) {
+        logs.showWindow(siteID: siteID, domain: executor.domain(of: siteID))
+        if explain {
+            // Runs once the history has loaded, so the newest deployment is the one explained.
+            logs.windowModel(siteID: siteID)?.explainAfterLoad = true
+        }
+    }
+
+    func retryDeploy(siteID: Int) {
+        Task { await executor.retryDeploy(siteID: siteID) }
+    }
+
+    func renewCertificate(siteID: Int) {
+        Task { await executor.renewCertificate(siteID: siteID) }
     }
 }
