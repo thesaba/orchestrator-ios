@@ -7,6 +7,11 @@ import UserNotifications
 protocol NotificationRouter: AnyObject {
     func openPopover(segment: PopoverSegment)
     func openWebPanel(_ destination: WebPanel.Destination)
+    func openDeployLog(siteID: Int, explain: Bool)
+    /// Opens the confirmation; nothing runs until the user confirms.
+    func retryDeploy(siteID: Int)
+    /// Opens the confirmation; nothing runs until the user confirms.
+    func renewCertificate(siteID: Int)
 }
 
 /// Turns changes between refreshes into system notifications: deploy results (from the
@@ -181,6 +186,15 @@ final class NotificationCoordinator: NSObject {
         add(content, id: "ssl-\(siteID)-\(Self.dayString(.now))")
     }
 
+    /// A plain confirmation of something the user just did ("Maintenance mode on").
+    func postInfo(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.threadIdentifier = "actions"
+        add(content, id: "info-\(UUID().uuidString)")
+    }
+
     private func add(_ content: UNNotificationContent, id: String) {
         center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
     }
@@ -205,11 +219,16 @@ final class NotificationCoordinator: NSObject {
                 ledger.certificateAnnouncedOn[siteID] = nil
                 ledger.save(to: defaults)
             }
+        case (.certificateExpiring, .renewNow):
+            if let siteID { router?.renewCertificate(siteID: siteID) }
         case (.certificateExpiring, _):
             router?.openPopover(segment: .alerts)
+        case (.deployFailed, .retry):
+            if let siteID { router?.retryDeploy(siteID: siteID) }
+        case (.deployFailed, .explain):
+            if let siteID { router?.openDeployLog(siteID: siteID, explain: true) }
         case (.deployFinished, _), (.deployFailed, _):
-            // The in-app deploy log arrives with the command palette; until then, the web panel.
-            if let siteID { router?.openWebPanel(.site(id: siteID)) } else { router?.openPopover(segment: .sites) }
+            if let siteID { router?.openDeployLog(siteID: siteID, explain: false) } else { router?.openPopover(segment: .sites) }
         }
     }
 

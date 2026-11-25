@@ -285,6 +285,7 @@ public struct AIChatResponse: Decodable, Sendable {
     public init(from decoder: Decoder) throws {
         let value = try decoder.singleValueContainer().decode(JSONValue.self)
         reply = value["reply"]?.stringValue
+            ?? value["explanation"]?.stringValue
             ?? value["message"]?.stringValue
             ?? value["content"]?.stringValue
             ?? value["answer"]?.stringValue

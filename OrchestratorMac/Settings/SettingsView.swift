@@ -1,31 +1,51 @@
 import OrchestratorKit
 import SwiftUI
 
-/// Account, refresh intervals, notification kinds, open at login.
-/// The global shortcut setting arrives with the command palette.
+/// Account, the palette shortcut, refresh intervals, notification kinds, open at login.
 struct SettingsView: View {
     let environment: AppEnvironment
 
+    /// Fixed: a tab view of grouped forms must not size its window (see `WindowCoordinator`).
+    static let size = NSSize(width: 500, height: 520)
+
     var body: some View {
         TabView {
-            GeneralSettingsView(settings: environment.settings)
+            GeneralSettingsView(environment: environment, settings: environment.settings)
                 .tabItem { Label("General", systemImage: "gearshape") }
             NotificationSettingsView(settings: environment.settings)
                 .tabItem { Label("Notifications", systemImage: "bell") }
             AccountSettingsView(environment: environment)
                 .tabItem { Label("Account", systemImage: "person.crop.circle") }
         }
-        .frame(width: 460)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: Self.size.width, height: Self.size.height)
     }
 }
 
 private struct GeneralSettingsView: View {
+    let environment: AppEnvironment
     @Bindable var settings: AppSettings
     @State private var launchAtLogin = LaunchAtLogin()
 
     var body: some View {
         Form {
+            Section {
+                LabeledContent("Command palette") {
+                    ShortcutRecorder(combo: $settings.paletteShortcut) { recording in
+                        environment.palette.suspendShortcut(recording)
+                    }
+                }
+                if environment.shortcutUnavailable {
+                    Text("This shortcut is taken by another app or the system. Choose another one.")
+                        .font(.caption)
+                        .foregroundStyle(Color.statusWarningText)
+                }
+                TextField("SSH user for \(APIConfig.baseURL.host() ?? "the panel server")", text: $settings.localSSHUser)
+            } footer: {
+                Text("SSH opens Terminal with your own keys. Remote servers use the user stored in the panel.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section {
                 Toggle("Open at login", isOn: Binding(
                     get: { launchAtLogin.isEnabled },
@@ -65,6 +85,7 @@ private struct GeneralSettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear { launchAtLogin.refresh() }
+        .onChange(of: settings.paletteShortcut) { environment.applyShortcut() }
     }
 
     private static func label(_ seconds: Int) -> String {

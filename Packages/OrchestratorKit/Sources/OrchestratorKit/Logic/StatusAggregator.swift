@@ -134,6 +134,7 @@ public struct StatusAggregator: Sendable {
                     shortCommit: deployment?.shortCommit,
                     lastDeployAt: deployment?.createdAt,
                     lastDeployStatus: deployment?.status,
+                    lastDeploymentID: deployment?.id,
                     deploy: deployment?.log.map { DeployLogParser.parse($0, status: deployment?.status) }
                 )
             }

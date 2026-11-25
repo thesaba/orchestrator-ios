@@ -55,7 +55,10 @@ struct PopoverView: View {
             }
         }
 
-        PopoverFooter(store: store)
+        PopoverFooter(store: store, shortcut: environment.settings.paletteShortcut) {
+            environment.statusItem?.closePopover()
+            environment.palette.show()
+        }
     }
 }
 

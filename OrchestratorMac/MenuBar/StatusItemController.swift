@@ -30,6 +30,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
     }
 
+    func closePopover() {
+        popover.performClose(nil)
+    }
+
     /// Opens the popover, optionally on a specific segment.
     func showPopover(segment: PopoverSegment?) {
         if let segment { popoverState.segment = segment }
