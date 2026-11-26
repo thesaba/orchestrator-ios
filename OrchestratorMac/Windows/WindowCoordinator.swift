@@ -1,14 +1,22 @@
 import AppKit
 import SwiftUI
 
-/// Opens and reuses the app's ordinary windows: Settings and Sign In.
+/// Opens and reuses the app's windows: the main window, Settings, Sign In and site logs.
 @MainActor
 final class WindowCoordinator {
     weak var environment: AppEnvironment?
 
+    private(set) var main: MainWindowController?
     private var settingsWindow: NSWindow?
     private var signInWindow: NSWindow?
     private var siteLogWindows: [Int: NSWindow] = [:]
+
+    func showMain() {
+        guard let environment else { return }
+        let controller = main ?? MainWindowController(environment: environment)
+        main = controller
+        controller.show()
+    }
 
     func showSettings() {
         guard let environment else { return }

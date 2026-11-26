@@ -10,8 +10,8 @@ import OrchestratorKit
 /// notification button.
 @MainActor
 final class CommandExecutor {
-    private let environment: AppEnvironment
-    private let api: OrchestratorAPI
+    let environment: AppEnvironment
+    let api: OrchestratorAPI
 
     init(environment: AppEnvironment, api: OrchestratorAPI = .shared) {
         self.environment = environment
@@ -263,14 +263,14 @@ final class CommandExecutor {
     // MARK: - Helpers
 
     /// Confirmation, then Touch ID or the password when the action asks for it.
-    private func confirm(_ confirmation: Confirmation, reason: String) async -> Bool {
+    func confirm(_ confirmation: Confirmation, reason: String) async -> Bool {
         environment.statusItem?.closePopover()
         guard AlertPresenter.confirm(confirmation) else { return false }
         guard confirmation.requiresAuthentication else { return true }
         return await ActionAuthorizer.authorize(reason: reason)
     }
 
-    private func listing(_ siteID: Int) -> SiteListing? {
+    func listing(_ siteID: Int) -> SiteListing? {
         store.siteListings?.first { $0.id == siteID }
     }
 

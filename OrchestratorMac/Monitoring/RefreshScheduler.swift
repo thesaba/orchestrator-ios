@@ -3,7 +3,7 @@ import OrchestratorKit
 
 /// Decides when `MonitorStore` refreshes.
 ///
-/// - Fast interval while the popover is open, slow interval otherwise.
+/// - Fast interval while the popover or the main window is open, slow interval otherwise.
 /// - The heavy site list on its own interval; on opening the popover when it is older than a
 ///   minute; every 30 s while a deploy runs and the popover is open.
 /// - Paused while the Mac sleeps or is offline; refreshes right after wake and reconnect.
@@ -19,6 +19,17 @@ final class RefreshScheduler {
             reschedule(refreshNow: isPopoverOpen)
         }
     }
+
+    /// The main window is on screen (not minimised or hidden): polls as fast as the popover.
+    @ObservationIgnored var isMainWindowVisible = false {
+        didSet {
+            guard isMainWindowVisible != oldValue else { return }
+            reschedule(refreshNow: isMainWindowVisible)
+        }
+    }
+
+    /// Someone is looking at the data.
+    private var isForeground: Bool { isPopoverOpen || isMainWindowVisible }
 
     @ObservationIgnored private let store: MonitorStore
     @ObservationIgnored private let settings: AppSettings
@@ -84,7 +95,7 @@ final class RefreshScheduler {
     private var canRefresh: Bool { isRunning && !isPaused && !isAsleep && connectivity.isOnline }
 
     private var interval: TimeInterval {
-        TimeInterval(isPopoverOpen ? settings.fastRefreshSeconds : settings.backgroundRefreshSeconds)
+        TimeInterval(isForeground ? settings.fastRefreshSeconds : settings.backgroundRefreshSeconds)
     }
 
     private func reschedule(refreshNow: Bool, forceSiteList: Bool = false, delay: TimeInterval = 0) {
@@ -97,7 +108,11 @@ final class RefreshScheduler {
             while !Task.isCancelled {
                 guard let self else { return }
                 if shouldRefresh, self.canRefresh {
-                    await self.store.refresh(includeSiteList: forceSites || self.siteListIsDue)
+                    // In its own task: rescheduling cancels this loop, and a refresh cancelled
+                    // halfway would report every source as failed and show an empty fleet.
+                    let store = self.store
+                    let includeSiteList = forceSites || self.siteListIsDue
+                    await Task { await store.refresh(includeSiteList: includeSiteList) }.value
                 }
                 shouldRefresh = true
                 forceSites = false
@@ -109,8 +124,8 @@ final class RefreshScheduler {
     private var siteListIsDue: Bool {
         guard let updated = store.siteListUpdated else { return true }
         let age = Date.now.timeIntervalSince(updated)
-        if isPopoverOpen, store.overview.isDeploying { return age >= Self.siteListWhileDeploying }
-        if isPopoverOpen { return age >= Self.siteListOnOpenAge }
+        if isForeground, store.overview.isDeploying { return age >= Self.siteListWhileDeploying }
+        if isForeground { return age >= Self.siteListOnOpenAge }
         return age >= TimeInterval(settings.siteListRefreshSeconds)
     }
 

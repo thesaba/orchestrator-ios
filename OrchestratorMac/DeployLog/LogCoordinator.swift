@@ -35,6 +35,17 @@ final class LogCoordinator {
         }
     }
 
+    /// Attaches a session without a panel: the site page shows its lines itself
+    /// (the Artisan tab). Detached by the next session of the same site.
+    func startInline(_ session: LogSession) {
+        sessions[session.siteID]?.detach()
+        compactPanels[session.siteID]?.close()
+        compactPanels[session.siteID] = nil
+        sessions[session.siteID] = session
+        session.attach(api: environment.api)
+        observeFinish(session)
+    }
+
     /// "Show log" on a deploying site in the popover.
     func showLiveDeploy(for site: SiteStatus) {
         if let session = sessions[site.id], session.isDeployLike, !session.isFinished {
@@ -48,6 +59,15 @@ final class LogCoordinator {
     }
 
     func session(for siteID: Int) -> LogSession? { sessions[siteID] }
+
+    /// The site page's Deploys tab on a deploying site: attach to the running deploy without
+    /// a panel, so the tab can show it. Nothing happens when a session is already live.
+    func attachInline(toDeployOf site: SiteStatus) {
+        if let session = sessions[site.id], session.isDeployLike, !session.isFinished { return }
+        startInline(LogSession(siteID: site.id, domain: site.domain, kind: .deploy, branch: site.branch,
+                               commit: site.shortCommit, deploymentID: site.lastDeploymentID,
+                               startedAt: site.lastDeployAt ?? .now))
+    }
 
     private func observeFinish(_ session: LogSession) {
         finishObservers[session.siteID] = ObservationLoop { _ = session.isFinished } onChange: { [weak self, weak session] in

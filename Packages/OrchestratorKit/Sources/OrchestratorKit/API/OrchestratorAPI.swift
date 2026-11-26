@@ -112,8 +112,10 @@ public struct OrchestratorAPI: Sendable {
         try await client.get("/notifications")
     }
 
-    public func logErrors() async throws -> LogErrorsResponse {
-        try await client.get("/log-errors")
+    /// Grouped Laravel errors, newest first; only one site's when `siteID` is set.
+    public func logErrors(siteID: Int? = nil) async throws -> LogErrorsResponse {
+        let query = siteID.map { [URLQueryItem(name: "siteId", value: String($0))] } ?? []
+        return try await client.get("/log-errors", query: query)
     }
 
     public func alertRules() async throws -> [AlertRule] {

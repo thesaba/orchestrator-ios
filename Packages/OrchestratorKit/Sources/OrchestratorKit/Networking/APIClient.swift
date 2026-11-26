@@ -106,6 +106,32 @@ public final class APIClient: @unchecked Sendable {
         }
     }
 
+    /// `multipart/form-data` upload of whole files (the file manager's upload route).
+    @discardableResult
+    public func upload(_ path: String, query: [URLQueryItem] = [], files: [(name: String, data: Data)]) async throws -> Data {
+        let boundary = "OrchestratorBoundary-\(UUID().uuidString)"
+        var body = Data()
+        for file in files {
+            let safeName = file.name.replacingOccurrences(of: "\"", with: "_")
+            body.append(Data("--\(boundary)\r\n".utf8))
+            body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"\(safeName)\"\r\n".utf8))
+            body.append(Data("Content-Type: application/octet-stream\r\n\r\n".utf8))
+            body.append(file.data)
+            body.append(Data("\r\n".utf8))
+        }
+        body.append(Data("--\(boundary)--\r\n".utf8))
+        let request = try makeRequest(.post, path, query: query, body: body,
+                                      contentType: "multipart/form-data; boundary=\(boundary)",
+                                      timeout: APIConfig.streamTimeout)
+        do {
+            let (data, response) = try await session.data(for: request)
+            try validate(response, data: data, path: path)
+            return data
+        } catch {
+            throw APIError.wrap(error)
+        }
+    }
+
     // MARK: - Server-sent events
 
     /// Attaches to an SSE endpoint. Cancelling the consuming task closes the connection.
@@ -242,6 +268,10 @@ public final class APIClient: @unchecked Sendable {
     public static func errorMessage(from data: Data) -> String? {
         guard !data.isEmpty else { return nil }
         if let value = try? JSONDecoder().decode(JSONValue.self, from: data) {
+            // `{ error: "Query failed", details: "Unknown column…" }`: the details say why.
+            if let error = value["error"]?.stringValue, let details = value["details"]?.stringValue, !details.isEmpty {
+                return "\(error): \(details)"
+            }
             for key in ["error", "message", "msg", "detail", "reason"] {
                 if let candidate = value[key] {
                     if let text = candidate.stringValue, !text.isEmpty { return text }
