@@ -92,7 +92,7 @@ struct SiteSSLTab: View {
 
     private var hostsCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Host names")
+            SectionHeader(title: "Host names", symbol: "network", tint: Vivid.blue)
             if let hosts {
                 VStack(spacing: 0) {
                     HStack(spacing: 10) {
@@ -119,7 +119,7 @@ struct SiteSSLTab: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             } else {
-                ProgressView().controlSize(.small).frame(maxWidth: .infinity, minHeight: 60)
+                SkeletonRows(count: 3)
             }
         }
     }

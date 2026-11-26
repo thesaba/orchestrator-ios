@@ -60,7 +60,9 @@ struct TasksNotesView: View {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(TaskColumn.allCases) { column in
                         VStack(alignment: .leading, spacing: 8) {
-                            HStack {
+                            HStack(spacing: 6) {
+                                Image(systemName: column.symbol).foregroundStyle(column.tint).font(.system(size: 11, weight: .semibold))
+                                    .accessibilityHidden(true)
                                 Text(column.title).font(.system(size: 12, weight: .semibold))
                                 Spacer()
                                 Text("\(columns[column]?.count ?? 0)").font(.system(size: 11)).foregroundStyle(.secondary)
@@ -73,7 +75,16 @@ struct TasksNotesView: View {
                                     .rightClickMenu { menu(for: task, in: column) }
                             }
                             if (columns[column] ?? []).isEmpty {
-                                Text(loaded ? "Drop tasks here" : "Loading…").font(.system(size: 11)).foregroundStyle(.tertiary)
+                                if loaded {
+                                    Text("Drop tasks here").font(.system(size: 11)).foregroundStyle(.tertiary)
+                                } else {
+                                    ForEach(0..<2, id: \.self) { _ in
+                                        VStack(alignment: .leading, spacing: 6) { SkeletonBar(height: 9); SkeletonBar(width: 70, height: 7) }
+                                            .padding(10)
+                                            .background(RoundedRectangle(cornerRadius: 8).fill(.fill.quaternary))
+                                    }
+                                    .shimmering()
+                                }
                             }
                             Spacer(minLength: 0)
                         }
@@ -171,7 +182,11 @@ struct TasksNotesView: View {
                     .buttonStyle(.plain)
                 }
                 .listStyle(.inset)
-                .overlay { if notes.isEmpty { Text(loaded ? "No notes yet" : "Loading…").foregroundStyle(.secondary) } }
+                .overlay {
+                    if notes.isEmpty {
+                        if loaded { Text("No notes yet").foregroundStyle(.secondary) } else { SkeletonRows(count: 4).padding(12).frame(maxHeight: .infinity, alignment: .top) }
+                    }
+                }
             }
         }
     }
@@ -269,5 +284,25 @@ private struct TaskCard: View {
         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.quaternary))
         .accessibilityElement(children: .combine)
+    }
+}
+
+extension TaskColumn {
+    var symbol: String {
+        switch self {
+        case .todo:       return "circle.dashed"
+        case .inProgress: return "circle.lefthalf.filled"
+        case .review:     return "eye.circle.fill"
+        case .done:       return "checkmark.circle.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .todo:       return Vivid.slate
+        case .inProgress: return Vivid.blue
+        case .review:     return Vivid.purple
+        case .done:       return Vivid.green
+        }
     }
 }

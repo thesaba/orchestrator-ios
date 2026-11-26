@@ -92,7 +92,7 @@ struct SiteConfigTab: View {
                     .foregroundStyle(Color.statusDangerText)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if original == nil {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                SkeletonRows(count: 10, rowHeight: 28).padding(16).frame(maxHeight: .infinity, alignment: .top)
             } else if mode == .raw {
                 TextEditor(text: $draft)
                     .font(.system(size: 12, design: .monospaced))
@@ -170,7 +170,7 @@ struct SiteConfigTab: View {
 
     private var changesCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Changes to save")
+            SectionHeader(title: "Changes to save", symbol: "pencil.line", tint: Vivid.orange)
             VStack(alignment: .leading, spacing: 4) {
                 if changes.isEmpty {
                     Text(isEdited ? "Only comments or formatting changed." : "No changes. Edit in Raw file view.")
@@ -195,9 +195,9 @@ struct SiteConfigTab: View {
 
     private var historyCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Version history")
+            SectionHeader(title: "Version history", symbol: "clock.arrow.circlepath", tint: Vivid.purple)
             if versions.isEmpty {
-                EmptyRow(text: original == nil ? "Loading…" : "No saved versions", symbol: "clock.arrow.circlepath")
+                LoadingOrEmptyRow(isLoading: original == nil, text: "No saved versions", symbol: "clock.arrow.circlepath")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(versions.prefix(20).enumerated()), id: \.element.id) { index, version in

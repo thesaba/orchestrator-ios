@@ -16,9 +16,9 @@ struct UsersAccessView: View {
             VStack(alignment: .leading, spacing: 16) {
                 if let error { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(Color.statusDangerText) }
                 VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "Users", trailing: "Add in Web Panel") { WebPanel.open(.home) }
+                    SectionHeader(title: "Users", symbol: "person.2.fill", tint: Vivid.indigo, trailing: "Add in Web Panel") { WebPanel.open(.home) }
                     if users.isEmpty {
-                        EmptyRow(text: loaded ? "No users, or your account can’t list them" : "Loading…", symbol: "person.2")
+                        LoadingOrEmptyRow(isLoading: !loaded, text: "No users, or your account can’t list them", symbol: "person.2")
                     } else {
                         VStack(spacing: 0) {
                             ForEach(Array(users.enumerated()), id: \.element.id) { index, user in
@@ -51,9 +51,9 @@ struct UsersAccessView: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "API tokens", trailing: "Create in Web Panel") { WebPanel.open(.tokens) }
+                    SectionHeader(title: "API tokens", symbol: "key.fill", tint: Vivid.yellow, trailing: "Create in Web Panel") { WebPanel.open(.tokens) }
                     if tokens.isEmpty {
-                        EmptyRow(text: loaded ? "No tokens" : "Loading…", symbol: "key")
+                        LoadingOrEmptyRow(isLoading: !loaded, text: "No tokens", symbol: "key")
                     } else {
                         VStack(spacing: 0) {
                             ForEach(Array(tokens.enumerated()), id: \.element.id) { index, token in
@@ -128,6 +128,10 @@ struct AuditLogView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
             Divider()
+            if entries.isEmpty && isLoading {
+                SkeletonRows(count: 10).padding(20)
+                Spacer()
+            }
             List {
                 ForEach(shown) { entry in
                     HStack(spacing: 12) {
@@ -191,9 +195,9 @@ struct AutomationView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "Rules", trailing: "Edit in Web Panel") { WebPanel.open(.home) }
+                    SectionHeader(title: "Rules", symbol: "bolt.fill", tint: Vivid.yellow, trailing: "Edit in Web Panel") { WebPanel.open(.home) }
                     if rules.isEmpty {
-                        EmptyRow(text: loaded ? "No automation rules" : "Loading…", symbol: "bolt")
+                        LoadingOrEmptyRow(isLoading: !loaded, text: "No automation rules", symbol: "bolt")
                     } else {
                         VStack(spacing: 0) {
                             ForEach(Array(rules.enumerated()), id: \.element.id) { index, rule in
@@ -222,9 +226,9 @@ struct AutomationView: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "Webhooks")
+                    SectionHeader(title: "Webhooks", symbol: "link", tint: Vivid.blue)
                     if hooks.isEmpty {
-                        EmptyRow(text: loaded ? "No webhooks" : "Loading…", symbol: "link")
+                        LoadingOrEmptyRow(isLoading: !loaded, text: "No webhooks", symbol: "link")
                     } else {
                         VStack(spacing: 0) {
                             ForEach(Array(hooks.enumerated()), id: \.element.id) { index, hook in

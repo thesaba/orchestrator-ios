@@ -10,6 +10,7 @@ struct SiteOverviewTab: View {
     var row: SiteTableRow
 
     @State private var errors: [LogError] = []
+    @State private var responseExpanded = false
     @State private var errorsLoaded = false
 
     private var executor: CommandExecutor { environment.executor }
@@ -18,14 +19,14 @@ struct SiteOverviewTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
-                    tile("Uptime · 24 h", row.uptimePercent.map { "\($0)%" } ?? "—",
+                    tile("Uptime · 24 h", symbol: "waveform.path.ecg", color: Vivid.pink, row.uptimePercent.map { "\($0)%" } ?? "—",
                          row.uptimePercent == nil ? "Not monitored" : "from the uptime check",
                          tint: (row.uptimePercent ?? 100) < 99 ? .statusWarningText : nil)
-                    tile("Response p95", row.p95.map { "\($0) ms" } ?? "—", "last 24 h")
-                    tile("Certificate", row.sslEnabled ? (row.sslDaysLeft.map { "\($0) days" } ?? "On") : "Off",
+                    tile("Response p95", symbol: "speedometer", color: Vivid.blue, row.p95.map { "\($0) ms" } ?? "—", "last 24 h")
+                    tile("Certificate", symbol: "lock.shield.fill", color: Vivid.green, row.sslEnabled ? (row.sslDaysLeft.map { "\($0) days" } ?? "On") : "Off",
                          row.sslEnabled ? "left before it expires" : "HTTPS is off",
                          tint: row.sslEnabled && (row.sslDaysLeft ?? .max) <= AppSettings.sslWarningDays ? .statusWarningText : nil)
-                    tile("Last deploy", row.lastDeployAt.map { RelativeTime.ago($0) } ?? "Never",
+                    tile("Last deploy", symbol: "arrow.up.circle.fill", color: Vivid.indigo, row.lastDeployAt.map { RelativeTime.ago($0) } ?? "Never",
                          row.isDeploying ? "running now" : (row.lastDeployStatus ?? ""),
                          tint: row.lastDeployFailed ? .statusDangerText : nil)
                 }
@@ -45,6 +46,9 @@ struct SiteOverviewTab: View {
             }
             .padding(24)
         }
+        .sheet(isPresented: $responseExpanded) {
+            SiteResponseSheet(data: model.data, siteID: row.id, domain: row.domain)
+        }
         .task(id: row.id) {
             model.data.requestSparklines(for: [row.id])
             errors = (try? await environment.api.logErrors(siteID: row.id).errors.filter { !$0.resolved }) ?? []
@@ -52,9 +56,13 @@ struct SiteOverviewTab: View {
         }
     }
 
-    private func tile(_ caption: String, _ value: String, _ detail: String, tint: Color? = nil) -> some View {
+    private func tile(_ caption: String, symbol: String, color: Color, _ value: String, _ detail: String, tint: Color? = nil) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(caption).font(.system(size: 11)).foregroundStyle(.secondary)
+            HStack {
+                Text(caption).font(.system(size: 11)).foregroundStyle(.secondary)
+                Spacer()
+                IconBadge(symbol: symbol, tint: color)
+            }
             Text(value)
                 .font(.system(size: 22, weight: .semibold))
                 .monospacedDigit()
@@ -72,7 +80,7 @@ struct SiteOverviewTab: View {
 
     private var deployCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: row.isDeploying ? "Deploying now" : "Newest deploy",
+            SectionHeader(title: row.isDeploying ? "Deploying now" : "Newest deploy", symbol: "arrow.up.circle.fill", tint: Vivid.blue,
                           trailing: "All deploys") { model.siteTab = .deploys }
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
@@ -114,31 +122,23 @@ struct SiteOverviewTab: View {
     private var responseCard: some View {
         let values = model.data.sparklines[row.id] ?? []
         return VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Response time · 24 h")
+            HStack {
+                SectionHeader(title: "Response time · recent checks", symbol: "waveform.path.ecg", tint: Vivid.pink)
+                if values.count > 1 { ExpandChartButton { responseExpanded = true } }
+            }
             Group {
                 if values.count > 1 {
-                    Chart(Array(values.enumerated()), id: \.offset) { item in
-                        AreaMark(x: .value("Check", item.offset), y: .value("ms", item.element))
-                            .foregroundStyle(Color.brandTeal.opacity(0.18))
-                            .interpolationMethod(.monotone)
-                        LineMark(x: .value("Check", item.offset), y: .value("ms", item.element))
-                            .foregroundStyle(Color.brandTeal)
-                            .interpolationMethod(.monotone)
-                    }
-                    .chartXAxis(.hidden)
-                    .chartYAxis {
-                        AxisMarks(position: .leading) { value in
-                            AxisGridLine().foregroundStyle(.quaternary)
-                            AxisValueLabel { if let ms = value.as(Double.self) { Text("\(Int(ms)) ms") } }
-                        }
-                    }
-                    .frame(height: 140)
+                    InteractiveLineChart(series: [ChartSeries(name: "Response time", color: Vivid.pink, points: values)],
+                                         unit: .milliseconds, style: .card)
+                        .frame(height: 140)
                     .accessibilityLabel("Response time over 24 hours")
-                } else {
-                    Text(row.uptimePercent == nil ? "This site is not monitored." : "Loading…")
+                } else if row.uptimePercent == nil {
+                    Text("This site is not monitored.")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, minHeight: 140)
+                } else {
+                    WavePlaceholder().frame(height: 140)
                 }
             }
             .padding(12)
@@ -150,7 +150,7 @@ struct SiteOverviewTab: View {
 
     private var actionsCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Actions")
+            SectionHeader(title: "Actions", symbol: "bolt.fill", tint: Vivid.yellow)
             VStack(spacing: 0) {
                 action("Clear Cache…", "trash", "Runs optimize:clear") {
                     let id = row.id
@@ -203,9 +203,9 @@ struct SiteOverviewTab: View {
 
     private var errorsCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Unresolved errors", trailing: "Logs") { model.siteTab = .logs }
+            SectionHeader(title: "Unresolved errors", symbol: "ladybug.fill", tint: Vivid.pink, trailing: "Logs") { model.siteTab = .logs }
             if !errorsLoaded {
-                ProgressView().controlSize(.small).frame(maxWidth: .infinity, minHeight: 60)
+                SkeletonRows(count: 3)
             } else if errors.isEmpty {
                 EmptyRow(text: "No unresolved errors", symbol: "checkmark.circle")
             } else {
@@ -257,4 +257,11 @@ struct LogErrorRow: View {
 
 extension String {
     func ifEmpty(_ replacement: String) -> String { isEmpty ? replacement : self }
+}
+
+/// A shimmering wave while a chart's data loads.
+struct WavePlaceholder: View {
+    var body: some View {
+        SkeletonChart(height: 140)
+    }
 }

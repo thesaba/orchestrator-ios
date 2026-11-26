@@ -20,7 +20,7 @@ struct SiteDeploysTab: View {
             if let logModel {
                 DeployLogWindowView(model: logModel, onShrink: {}, embedded: true)
             } else {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                SkeletonRows(count: 8).padding(16).frame(maxHeight: .infinity, alignment: .top)
             }
         }
         .task(id: row.id) { await load() }

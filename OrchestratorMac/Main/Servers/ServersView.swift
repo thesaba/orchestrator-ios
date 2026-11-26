@@ -35,7 +35,10 @@ struct ServersView: View {
             Divider()
             ServerColumnsHeader()
             Divider()
-            if servers.isEmpty {
+            if !store.hasLoaded {
+                SkeletonRows(count: 4, rowHeight: 40).padding(16)
+                Spacer()
+            } else if servers.isEmpty {
                 ContentUnavailableView(store.servers.isEmpty ? "No servers" : "No matching servers", systemImage: "server.rack",
                                        description: Text(store.servers.isEmpty ? "Fleet monitoring needs an admin account." : "Nothing matches “\(model.searchText)”."))
                     .frame(maxHeight: .infinity)
@@ -46,6 +49,7 @@ struct ServersView: View {
                             .tag(status.id)
                             .listRowInsets(EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8))
                             .rightClickMenu { RowMenus.server(status.server, environment: environment) }
+                            .appearIn(delay: 0.03)
                             .help("Double-click to open \(status.server.name)")
                     }
                 }
@@ -57,7 +61,12 @@ struct ServersView: View {
         }
     }
 
+    @ViewBuilder
     private var tiles: some View {
+        if store.hasLoaded { loadedTiles } else { SkeletonTiles() }
+    }
+
+    private var loadedTiles: some View {
         let servers = store.overview.servers.map(\.server)
         func average(_ values: [Double?]) -> String {
             let known = values.compactMap { $0 }
@@ -76,8 +85,16 @@ struct ServersView: View {
     }
 
     private func tile(_ caption: String, _ value: String, _ detail: String, tint: Color? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(caption).font(.system(size: 11)).foregroundStyle(.secondary)
+        let icons: [String: (String, Color)] = [
+            "Healthy": ("heart.fill", Vivid.green), "Average CPU": ("cpu", Vivid.indigo),
+            "Average RAM": ("memorychip", Vivid.teal), "Fullest disk": ("internaldrive.fill", Vivid.orange)
+        ]
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(caption).font(.system(size: 11)).foregroundStyle(.secondary)
+                Spacer()
+                if let icon = icons[caption] { IconBadge(symbol: icon.0, tint: icon.1) }
+            }
             Text(value).font(.system(size: 22, weight: .semibold)).monospacedDigit().foregroundStyle(tint ?? .primary)
             Text(detail).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
         }

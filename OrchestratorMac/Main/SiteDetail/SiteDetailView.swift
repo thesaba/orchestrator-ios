@@ -169,16 +169,22 @@ private struct SiteTabBar: View {
                     Button {
                         selection = tab
                     } label: {
-                        Text(tab.title)
+                        Label {
+                            Text(tab.title)
+                        } icon: {
+                            Image(systemName: tab.symbol)
+                                .foregroundStyle(selection == tab ? tab.tint : Color.secondary)
+                        }
                             .font(.system(size: 12, weight: selection == tab ? .semibold : .regular))
                             .foregroundStyle(selection == tab ? .primary : .secondary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 8)
                             .overlay(alignment: .bottom) {
                                 Rectangle()
-                                    .fill(selection == tab ? Color.accentColor : .clear)
+                                    .fill(selection == tab ? tab.tint : .clear)
                                     .frame(height: 2)
                             }
+                            .animation(.snappy(duration: 0.2), value: selection)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)

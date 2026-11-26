@@ -17,7 +17,7 @@ struct MonitoringView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "Open alerts")
+                    SectionHeader(title: "Open alerts", symbol: "bell.badge.fill", tint: Vivid.orange)
                     AttentionList(environment: environment, items: store.overview.attention)
                 }
                 uptimeCard
@@ -51,7 +51,7 @@ struct MonitoringView: View {
             return (stats[lhs.siteId]?.p95 ?? 0) > (stats[rhs.siteId]?.p95 ?? 0)
         }
         return VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Uptime & response · 24 h")
+            SectionHeader(title: "Uptime & response · 24 h", symbol: "waveform.path.ecg", tint: Vivid.pink)
             if entries.isEmpty {
                 EmptyRow(text: "No monitored sites", symbol: "waveform.path.ecg")
             } else {
@@ -117,7 +117,7 @@ struct MonitoringView: View {
     private var certificatesCard: some View {
         let certificates = store.certificates.sorted { ($0.daysLeft ?? .max) < ($1.daysLeft ?? .max) }
         return VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Certificates")
+            SectionHeader(title: "Certificates", symbol: "lock.shield.fill", tint: Vivid.green)
             if certificates.isEmpty {
                 EmptyRow(text: "No certificates", symbol: "lock")
             } else {
@@ -159,9 +159,9 @@ struct MonitoringView: View {
 
     private var historyCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Resolved alerts")
+            SectionHeader(title: "Resolved alerts", symbol: "checkmark.seal.fill", tint: Vivid.green)
             if history.isEmpty {
-                EmptyRow(text: loaded ? "Nothing resolved recently" : "Loading…", symbol: "clock")
+                LoadingOrEmptyRow(isLoading: !loaded, text: "Nothing resolved recently", symbol: "clock")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(history.prefix(10).enumerated()), id: \.element.id) { index, alert in
@@ -187,9 +187,9 @@ struct MonitoringView: View {
 
     private var rulesCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Alert rules", trailing: "Edit in Web Panel") { WebPanel.open(.serverAlerts) }
+            SectionHeader(title: "Alert rules", symbol: "slider.horizontal.3", tint: Vivid.purple, trailing: "Edit in Web Panel") { WebPanel.open(.serverAlerts) }
             if rules.isEmpty {
-                EmptyRow(text: loaded ? "No alert rules" : "Loading…", symbol: "bell.slash")
+                LoadingOrEmptyRow(isLoading: !loaded, text: "No alert rules", symbol: "bell.slash")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(rules.enumerated()), id: \.element.id) { index, rule in

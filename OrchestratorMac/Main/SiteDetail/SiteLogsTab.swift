@@ -24,8 +24,11 @@ struct SiteLogsTab: View {
                 .padding(12)
                 Divider()
                 let shown = errors.filter { showResolved || !$0.resolved }
-                if shown.isEmpty {
-                    Text(hasLoaded ? "No errors recorded." : "Loading…")
+                if !hasLoaded {
+                    SkeletonRows(count: 6).padding(12)
+                    Spacer()
+                } else if shown.isEmpty {
+                    Text("No errors recorded.")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -67,7 +67,7 @@ struct SiteDatabaseTab: View {
     private var backupsCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionHeader(title: "Backups")
+                SectionHeader(title: "Backups", symbol: "externaldrive.fill", tint: Vivid.blue)
                 Spacer()
                 Button("Back Up Now…") {
                     Task { if await executor.createBackup(siteID: siteID) { reloadSoon(after: 5) } }
@@ -76,7 +76,7 @@ struct SiteDatabaseTab: View {
                 .controlSize(.small)
             }
             if backups.isEmpty {
-                EmptyRow(text: hasLoaded ? "No backups yet" : "Loading…", symbol: "externaldrive")
+                LoadingOrEmptyRow(isLoading: !hasLoaded, text: "No backups yet", symbol: "externaldrive")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(backups.prefix(30).enumerated()), id: \.element.id) { index, backup in
@@ -121,7 +121,7 @@ struct SiteDatabaseTab: View {
 
     private var scheduleCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Schedule")
+            SectionHeader(title: "Schedule", symbol: "calendar.badge.clock", tint: Vivid.purple)
             VStack(alignment: .leading, spacing: 10) {
                 Text(scheduleSummary).font(.system(size: 12)).foregroundStyle(.secondary)
                 DatePicker("Time", selection: $scheduleTime, displayedComponents: .hourAndMinute)
@@ -175,7 +175,7 @@ struct SiteDatabaseTab: View {
         let statement = SQLStatement(sql)
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionHeader(title: "SQL console")
+                SectionHeader(title: "SQL console", symbol: "terminal.fill", tint: Vivid.indigo)
                 Spacer()
                 if databases.count > 1 {
                     Picker("Database", selection: $databaseID) {

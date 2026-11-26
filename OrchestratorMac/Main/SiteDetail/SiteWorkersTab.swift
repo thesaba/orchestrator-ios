@@ -23,7 +23,7 @@ struct SiteWorkersTab: View {
                     tile("Workers", status.map { "\($0.processes.filter { $0.state.uppercased() == "RUNNING" }.count) / \($0.processes.count)" } ?? "—",
                          "running under Supervisor")
                     tile("Waiting jobs", queue?.pending.map(String.init) ?? "—", "in the queue now")
-                    tile("Failed jobs", queue?.failed.map(String.init) ?? "\(failed.count)", "in failed_jobs",
+                    tile("Failed jobs", queue?.failed.map(String.init) ?? (hasLoaded ? "\(failed.count)" : "—"), "in failed_jobs",
                          tint: (queue?.failed ?? failed.count) > 0 ? .statusDangerText : nil)
                     tile("Scheduler", scheduler.map { $0.active ? "On" : "Off" } ?? "—", "schedule:run every minute",
                          tint: scheduler?.active == false ? .statusWarningText : nil)
@@ -58,8 +58,16 @@ struct SiteWorkersTab: View {
     }
 
     private func tile(_ caption: String, _ value: String, _ detail: String, tint: Color? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(caption).font(.system(size: 11)).foregroundStyle(.secondary)
+        let icons: [String: (String, Color)] = [
+            "Workers": ("gearshape.2.fill", Vivid.teal), "Waiting jobs": ("tray.full.fill", Vivid.blue),
+            "Failed jobs": ("xmark.octagon.fill", Vivid.pink), "Scheduler": ("calendar.badge.clock", Vivid.purple)
+        ]
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(caption).font(.system(size: 11)).foregroundStyle(.secondary)
+                Spacer()
+                if let icon = icons[caption] { IconBadge(symbol: icon.0, tint: icon.1) }
+            }
             Text(value).font(.system(size: 22, weight: .semibold)).monospacedDigit().foregroundStyle(tint ?? .primary)
             Text(detail).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
         }
@@ -75,7 +83,7 @@ struct SiteWorkersTab: View {
     private var workersCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionHeader(title: "Worker processes")
+                SectionHeader(title: "Worker processes", symbol: "gearshape.2.fill", tint: Vivid.teal)
                 Spacer()
                 ForEach([OrchestratorAPI.SupervisorAction.start, .restart, .stop], id: \.self) { action in
                     Button("\(action.title) All…") { control(action) }
@@ -104,7 +112,7 @@ struct SiteWorkersTab: View {
                 }
                 .card()
             } else {
-                EmptyRow(text: hasLoaded ? "No Supervisor workers for this site" : "Loading…", symbol: "gearshape.2")
+                LoadingOrEmptyRow(isLoading: !hasLoaded, text: "No Supervisor workers for this site", symbol: "gearshape.2")
             }
         }
     }
@@ -122,7 +130,7 @@ struct SiteWorkersTab: View {
     private var failedCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionHeader(title: "Failed jobs")
+                SectionHeader(title: "Failed jobs", symbol: "xmark.octagon.fill", tint: Vivid.pink)
                 Spacer()
                 Button("Retry All…") {
                     let count = failed.count
@@ -132,7 +140,7 @@ struct SiteWorkersTab: View {
                 .disabled(failed.isEmpty)
             }
             if failed.isEmpty {
-                EmptyRow(text: hasLoaded ? "No failed jobs" : "Loading…", symbol: "checkmark.circle")
+                LoadingOrEmptyRow(isLoading: !hasLoaded, text: "No failed jobs", symbol: "checkmark.circle")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(failed.prefix(50).enumerated()), id: \.element.id) { index, job in
@@ -169,7 +177,7 @@ struct SiteWorkersTab: View {
 
     private var schedulerCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Scheduler")
+            SectionHeader(title: "Scheduler", symbol: "calendar.badge.clock", tint: Vivid.purple)
             VStack(alignment: .leading, spacing: 6) {
                 if let scheduler {
                     Text(scheduler.active ? "The cron entry runs schedule:run every minute." : "No cron entry: scheduled tasks do not run.")
@@ -181,7 +189,11 @@ struct SiteWorkersTab: View {
                             .textSelection(.enabled)
                     }
                 } else {
-                    Text(hasLoaded ? "Could not read the scheduler." : "Loading…").foregroundStyle(.secondary)
+                    if hasLoaded {
+                        Text("Could not read the scheduler.").foregroundStyle(.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 6) { SkeletonBar(height: 9); SkeletonBar(width: 260, height: 8) }.shimmering()
+                    }
                 }
             }
             .padding(12)

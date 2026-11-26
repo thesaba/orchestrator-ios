@@ -22,19 +22,24 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if !store.hasLoaded {
-                    ProgressView("Loading…")
-                        .controlSize(.small)
-                        .frame(maxWidth: .infinity, minHeight: 200)
+                    SkeletonTiles()
+                    HStack(alignment: .top, spacing: 16) {
+                        VStack(spacing: 16) { SkeletonRows(count: 3); SkeletonRows(count: 5) }
+                        VStack(spacing: 16) {
+                            HStack(spacing: 10) { SkeletonChart(); SkeletonChart(); SkeletonChart() }
+                            SkeletonRows(count: 5)
+                        }
+                    }
                 } else {
                     tiles(summary.tiles)
                     if width >= 980 {
                         HStack(alignment: .top, spacing: 16) {
-                            leftColumn(summary)
-                            rightColumn(summary)
+                            leftColumn(summary).appearIn(delay: 0.12)
+                            rightColumn(summary).appearIn(delay: 0.2)
                         }
                     } else {
-                        leftColumn(summary)
-                        rightColumn(summary)
+                        leftColumn(summary).appearIn(delay: 0.12)
+                        rightColumn(summary).appearIn(delay: 0.2)
                     }
                 }
             }
@@ -46,8 +51,9 @@ struct DashboardView: View {
 
     private func tiles(_ tiles: [DashboardSummary.Tile]) -> some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: width >= 720 ? 4 : 2), spacing: 12) {
-            ForEach(tiles) { tile in
+            ForEach(Array(tiles.enumerated()), id: \.element.id) { index, tile in
                 DashboardTile(tile: tile) { open(tile.kind) }
+                    .appearIn(delay: Double(index) * 0.05)
             }
         }
     }
@@ -55,7 +61,7 @@ struct DashboardView: View {
     private func leftColumn(_ summary: DashboardSummary) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Needs attention",
+                SectionHeader(title: "Needs attention", symbol: "exclamationmark.triangle.fill", tint: Vivid.orange,
                               trailing: store.overview.attention.isEmpty ? nil : "All alerts") { model.selection = .alerts }
                 AttentionList(environment: environment, items: Array(store.overview.attention.prefix(5)))
             }
@@ -86,16 +92,40 @@ private struct DashboardTile: View {
     var tile: DashboardSummary.Tile
     var action: () -> Void
 
+    private var symbol: String {
+        switch tile.kind {
+        case .servers: return "server.rack"
+        case .sites:   return "globe"
+        case .alerts:  return tile.value == "0" ? "bell" : "bell.badge.fill"
+        case .deploys: return "arrow.up.circle.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch tile.kind {
+        case .servers: return Vivid.teal
+        case .sites:   return Vivid.blue
+        case .alerts:  return Vivid.orange
+        case .deploys: return Vivid.indigo
+        }
+    }
+
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(tile.caption)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text(tile.caption)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    IconBadge(symbol: symbol, tint: tint)
+                }
                 Text(tile.value)
                     .font(.system(size: 26, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(tile.emphasis?.textTint ?? .primary)
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: tile.value)
                 Text(tile.detail)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
@@ -108,6 +138,8 @@ private struct DashboardTile: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .hoverHighlight()
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(tile.caption): \(tile.value)")
         .accessibilityValue(tile.detail)

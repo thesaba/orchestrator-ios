@@ -14,8 +14,8 @@ final class MainDataStore {
     /// Fleet-average CPU, RAM and disk per range.
     private(set) var resources: [MetricsRange: [ResourcePoint]] = [:]
     private(set) var isLoadingResources = false
-    /// Response times in ms, oldest first, per site.
-    private(set) var sparklines: [Int: [Double]] = [:]
+    /// Response times in ms with when they were measured, oldest first, per site.
+    private(set) var sparklines: [Int: [SeriesPoint]] = [:]
 
     /// The range the Dashboard charts show.
     var range: MetricsRange = .day {
@@ -147,7 +147,7 @@ final class MainDataStore {
             Task {
                 defer { sparklinesLoading.remove(id) }
                 guard let points = try? await api.uptimeSparkline(siteID: id).points else { return }
-                sparklines[id] = points.sorted { $0.at < $1.at }.compactMap { $0.ms.map(Double.init) }
+                sparklines[id] = points.sorted { $0.at < $1.at }.compactMap { point in point.ms.map { SeriesPoint(date: point.at, value: Double($0)) } }
             }
         }
     }

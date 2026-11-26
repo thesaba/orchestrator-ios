@@ -11,6 +11,8 @@ struct ServerDetailView: View {
 
     @State private var range: MetricsRange = .day
     @State private var points: [FleetMetricsHistory.Point] = []
+    @State private var metricsLoaded = false
+    @State private var metricsExpanded = false
     @State private var processes: [FleetProcesses.Process] = []
     @State private var byMemory = false
     @State private var inventory: FleetInventory?
@@ -61,6 +63,9 @@ struct ServerDetailView: View {
                     .keyboardShortcut("[", modifiers: .command)
             }
         }
+        .sheet(isPresented: $metricsExpanded) {
+            ServerMetricsSheet(api: environment.api, serverID: serverID, serverName: status?.server.name ?? "Server", range: range)
+        }
         .task(id: serverID) { await loadDetails() }
         .task(id: "\(serverID)-\(range.rawValue)") { await loadMetrics() }
         .task(id: "\(serverID)-\(byMemory)") { await loadProcesses() }
@@ -81,6 +86,7 @@ struct ServerDetailView: View {
 
     private func loadMetrics() async {
         points = (try? await environment.api.fleetMetrics(serverID: serverID, range: range).points) ?? []
+        metricsLoaded = true
     }
 
     private func loadProcesses() async {
@@ -148,7 +154,7 @@ struct ServerDetailView: View {
     private var charts: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionHeader(title: "Metrics")
+                SectionHeader(title: "Metrics", symbol: "chart.xyaxis.line", tint: Vivid.indigo)
                 Picker("Range", selection: $range) {
                     ForEach(MetricsRange.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -156,11 +162,16 @@ struct ServerDetailView: View {
                 .labelsHidden()
                 .fixedSize()
                 .controlSize(.small)
+                ExpandChartButton { metricsExpanded = true }
             }
             HStack(spacing: 10) {
-                ServerChart(title: "CPU", points: points, value: \.cpu, color: .chartCPU, limit: 80)
-                ServerChart(title: "RAM", points: points, value: \.ram, color: .brandTeal, limit: 85)
-                ServerChart(title: "Disk", points: points, value: \.disk, color: .statusWarning, limit: 90)
+                if !metricsLoaded {
+                    SkeletonChart(height: 160); SkeletonChart(height: 160); SkeletonChart(height: 160)
+                } else {
+                    ServerChart(title: "CPU", points: points, value: \.cpu, color: Vivid.indigo, limit: 80)
+                    ServerChart(title: "RAM", points: points, value: \.ram, color: Vivid.teal, limit: 85)
+                    ServerChart(title: "Disk", points: points, value: \.disk, color: Vivid.orange, limit: 90)
+                }
             }
         }
     }
@@ -170,7 +181,7 @@ struct ServerDetailView: View {
     private var processesCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionHeader(title: "Top processes")
+                SectionHeader(title: "Top processes", symbol: "cpu", tint: Vivid.blue)
                 Picker("Sort", selection: $byMemory) {
                     Text("CPU").tag(false)
                     Text("Memory").tag(true)
@@ -184,7 +195,7 @@ struct ServerDetailView: View {
                     .accessibilityLabel("Reload processes")
             }
             if processes.isEmpty {
-                EmptyRow(text: loaded ? "No process list from this server" : "Loading…", symbol: "cpu")
+                LoadingOrEmptyRow(isLoading: !loaded, text: "No process list from this server", symbol: "cpu")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(processes.enumerated()), id: \.element.id) { index, process in
@@ -214,14 +225,14 @@ struct ServerDetailView: View {
         let services = (inventory?.services ?? []).sorted { ($0.isFailed ? 0 : 1, $0.name) < ($1.isFailed ? 0 : 1, $1.name) }
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionHeader(title: "Services")
+                SectionHeader(title: "Services", symbol: "gearshape.2.fill", tint: Vivid.teal)
                 Spacer()
                 if let at = inventoryAt {
                     Text("as of \(RelativeTime.ago(at))").font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
             if services.isEmpty {
-                EmptyRow(text: loaded ? "No service list from this server" : "Loading…", symbol: "gearshape.2")
+                LoadingOrEmptyRow(isLoading: !loaded, text: "No service list from this server", symbol: "gearshape.2")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(services.enumerated()), id: \.element.id) { index, service in
@@ -270,7 +281,7 @@ struct ServerDetailView: View {
 
     private func alertsCard(_ status: ServerStatus) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Open alerts")
+            SectionHeader(title: "Open alerts", symbol: "bell.badge.fill", tint: Vivid.orange)
             if status.alerts.isEmpty {
                 EmptyRow(text: "No open alerts", symbol: "checkmark.circle")
             } else {
@@ -297,10 +308,14 @@ struct ServerDetailView: View {
 
     private var forecastCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Disks")
+            SectionHeader(title: "Disks", symbol: "internaldrive.fill", tint: Vivid.orange)
             VStack(alignment: .leading, spacing: 10) {
                 if forecast.isEmpty {
-                    Text(loaded ? "No disk data." : "Loading…").font(.system(size: 12)).foregroundStyle(.secondary)
+                    if loaded {
+                        Text("No disk data.").font(.system(size: 12)).foregroundStyle(.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) { SkeletonBar(height: 9); SkeletonBar(width: 120, height: 7) }.shimmering()
+                    }
                 }
                 ForEach(forecast) { mount in
                     VStack(alignment: .leading, spacing: 4) {
@@ -329,7 +344,7 @@ struct ServerDetailView: View {
     private func updatesCard(_ status: ServerStatus) -> some View {
         if let updates = inventory?.updates {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Package updates")
+                SectionHeader(title: "Package updates", symbol: "shippingbox.fill", tint: Vivid.purple)
                 VStack(alignment: .leading, spacing: 8) {
                     Text(updates.count == 0 ? "Up to date" : "\(updates.count) packages · \(updates.security) security")
                         .font(.system(size: 13, weight: .medium))
@@ -365,7 +380,7 @@ struct ServerDetailView: View {
     private func containersCard(_ status: ServerStatus) -> some View {
         if let docker = inventory?.docker, docker.available, !docker.containers.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Containers")
+                SectionHeader(title: "Containers", symbol: "shippingbox", tint: Vivid.blue)
                 VStack(spacing: 0) {
                     ForEach(Array(docker.containers.enumerated()), id: \.element.id) { index, container in
                         if index > 0 { Divider() }
@@ -420,24 +435,11 @@ private struct ServerChart: View {
             }
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
-            Chart {
-                ForEach(points, id: \.t) { point in
-                    AreaMark(x: .value("Time", point.t), y: .value(title, point[keyPath: value]))
-                        .foregroundStyle(color.opacity(0.2))
-                        .interpolationMethod(.monotone)
-                    LineMark(x: .value("Time", point.t), y: .value(title, point[keyPath: value]))
-                        .foregroundStyle(color)
-                        .lineStyle(StrokeStyle(lineWidth: 1.5))
-                        .interpolationMethod(.monotone)
-                }
-                RuleMark(y: .value("Limit", limit))
-                    .foregroundStyle(.secondary.opacity(0.5))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-            }
-            .chartYScale(domain: 0...100)
-            .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { AxisValueLabel() } }
-            .chartYAxis { AxisMarks(values: [0, 50, 100]) { _ in AxisGridLine().foregroundStyle(.quaternary) } }
-            .frame(height: 110)
+            InteractiveLineChart(
+                series: [ChartSeries(name: title, color: color,
+                                     points: points.map { SeriesPoint(date: $0.t, value: $0[keyPath: value]) })],
+                unit: .percent, yDomain: 0...100, threshold: limit, style: .card)
+                .frame(height: 110)
             Text(points.isEmpty ? "No samples in this range" : "peak \(Int(peak.rounded()))% · dashed line \(Int(limit))%")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
@@ -445,8 +447,7 @@ private struct ServerChart: View {
         .padding(10)
         .frame(maxWidth: .infinity)
         .card()
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
-        .accessibilityValue(points.isEmpty ? "No data" : "\(Int(now.rounded())) percent now, peak \(Int(peak.rounded())) percent")
     }
 }

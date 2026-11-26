@@ -9,7 +9,7 @@ struct DeployTimelineCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Deploys", trailing: "All sites") { model.selection = .sites }
+            SectionHeader(title: "Deploys", symbol: "arrow.up.circle.fill", tint: Vivid.blue, trailing: "All sites") { model.selection = .sites }
             if deploys.isEmpty {
                 EmptyRow(text: "No deploys yet", symbol: "arrow.up.circle")
             } else {
@@ -24,6 +24,7 @@ struct DeployTimelineCard: View {
                             }
                         }
                         .contentShape(Rectangle())
+                        .hoverHighlight()
                         .onTapGesture { model.openSite(deploy.siteID, tab: .deploys) }
                         .rightClickMenu {
                             if let site = environment.store.site(id: deploy.siteID) {

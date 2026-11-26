@@ -18,6 +18,7 @@ struct StatusMarkView: View {
                 Image(systemName: mark.symbol)
                     .font(.system(size: size * (mark == .deploying ? 0.95 : 0.9), weight: .semibold))
                     .foregroundStyle(mark.tint)
+                    .symbolEffect(.pulse, options: .repeating, isActive: mark == .deploying)
             }
         }
         .frame(width: size, height: size)
