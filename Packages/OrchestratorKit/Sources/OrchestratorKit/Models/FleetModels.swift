@@ -34,6 +34,10 @@ public struct FleetServer: Decodable, Sendable, Hashable, Identifiable {
     public var siteCount: Int
     public var latest: FleetLatestMetrics?
     public var activeAlerts: Int
+    /// The server's switch for the web terminal.
+    public var terminalEnabled: Bool = false
+    /// The server's switch for free commands and saved scripts run from a person's session.
+    public var commandsEnabled: Bool = false
 
     public var isLocal: Bool { kind == "local" }
 
@@ -82,7 +86,7 @@ public struct FleetServer: Decodable, Sendable, Hashable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case id, name, kind, host, hasSsh, agentStatus, agentVersion, agentMode, agentLastSeenAt
         case agentUpdateAvailable, channel, location, groupName, tags, provider, latencyMs
-        case maintenanceUntil, siteCount, latest, activeAlerts
+        case maintenanceUntil, siteCount, latest, activeAlerts, terminalEnabled, commandsEnabled
     }
 
     public init(from decoder: Decoder) throws {
@@ -107,6 +111,8 @@ public struct FleetServer: Decodable, Sendable, Hashable, Identifiable {
         siteCount = try c.decodeIfPresent(Int.self, forKey: .siteCount) ?? 0
         latest = try c.decodeIfPresent(FleetLatestMetrics.self, forKey: .latest)
         activeAlerts = try c.decodeIfPresent(Int.self, forKey: .activeAlerts) ?? 0
+        terminalEnabled = try c.decodeIfPresent(Bool.self, forKey: .terminalEnabled) ?? false
+        commandsEnabled = try c.decodeIfPresent(Bool.self, forKey: .commandsEnabled) ?? false
     }
 }
 

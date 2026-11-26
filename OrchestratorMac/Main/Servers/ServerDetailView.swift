@@ -19,6 +19,9 @@ struct ServerDetailView: View {
     @State private var inventoryAt: Date?
     @State private var forecast: [FleetForecast.Mount] = []
     @State private var loaded = false
+    @State private var section: ServerSection = .overview
+
+    enum ServerSection: Hashable { case overview, logs, terminal }
 
     private var store: MonitorStore { environment.store }
     private var status: ServerStatus? { store.server(id: serverID) }
@@ -27,9 +30,31 @@ struct ServerDetailView: View {
     var body: some View {
         Group {
             if let status {
+                VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        header(status)
+                        Picker("Section", selection: $section) {
+                            Label("Overview", systemImage: "square.grid.2x2").tag(ServerSection.overview)
+                            Label("Logs", systemImage: "text.alignleft").tag(ServerSection.logs)
+                            Label("Terminal", systemImage: "apple.terminal").tag(ServerSection.terminal)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
+                    .padding(.bottom, 12)
+                    Divider()
+                    if section == .terminal {
+                        ServerTerminalSection(environment: environment, server: status.server)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if section == .logs {
+                        ServerLogsView(api: environment.api, serverID: status.server.id,
+                                       services: (inventory?.services ?? []).map(\.name))
+                    } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        header(status)
                         charts
                         HStack(alignment: .top, spacing: 16) {
                             VStack(alignment: .leading, spacing: 16) {
@@ -47,6 +72,8 @@ struct ServerDetailView: View {
                         }
                     }
                     .padding(24)
+                }
+                    }
                 }
             } else {
                 ContentUnavailableView {
@@ -449,5 +476,38 @@ private struct ServerChart: View {
         .card()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
+    }
+}
+
+/// A shell on the server: needs its "web terminal" switch, the password session and a
+/// 2FA step-up, exactly as the panel's own server terminal.
+struct ServerTerminalSection: View {
+    let environment: AppEnvironment
+    var server: FleetServer
+
+    private var admin: AdminAccess { environment.admin }
+
+    var body: some View {
+        if !server.terminalEnabled {
+            ContentUnavailableView {
+                Label("The terminal is off for \(server.name)", systemImage: "lock.slash")
+            } description: {
+                Text("Turn on “Web terminal” in this server’s settings in the web panel. Turning it on also needs a 2FA code there.")
+            } actions: {
+                Button("Open Server in Web Panel") { WebPanel.open(.server(id: server.id)) }
+            }
+        } else if admin.isElevated() {
+            TerminalPane(title: server.name,
+                         warning: "You are on the server itself; commands run as its login user.",
+                         makeURL: { admin.serverTerminalURL(serverID: server.id, cols: 120, rows: 32) })
+                .id(server.id)
+        } else {
+            TerminalLocked(title: "Terminal for \(server.name)",
+                           detail: "A server shell needs your password and a fresh 2FA code. The code unlocks terminals and scripts for 15 minutes in this app.",
+                           buttonTitle: admin.isSignedIn ? "Confirm with 2FA…" : "Sign In…") {
+                let admin = self.admin, email = environment.session.user?.email
+                Task { _ = await AdminPrompt.ensureElevated(admin, suggestedEmail: email) }
+            }
+        }
     }
 }

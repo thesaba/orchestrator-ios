@@ -20,6 +20,8 @@ final class AppEnvironment {
     private(set) lazy var executor = CommandExecutor(environment: self)
     private(set) lazy var logs = LogCoordinator(environment: self)
     let artisanCatalog = ArtisanCatalog()
+    /// The password + 2FA session for the terminal, scripts and commands (memory only).
+    let admin = AdminAccess()
     private(set) var statusItem: StatusItemController?
 
     private var sessionObservation: ObservationLoop?
@@ -86,6 +88,7 @@ final class AppEnvironment {
         case .signedOut:
             scheduler.stop()
             store.reset()
+            admin.signOut()
             windows.main?.model.data.reset()
         case .launching:
             break

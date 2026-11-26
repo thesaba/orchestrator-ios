@@ -21,11 +21,21 @@ let package = Package(
         .macOS("26.0")
     ],
     products: [
-        .library(name: "OrchestratorKit", targets: ["OrchestratorKit"])
+        .library(name: "OrchestratorKit", targets: ["OrchestratorKit"]),
+        /// The Mac app's embedded terminal (SwiftTerm and the panel's terminal WebSocket).
+        .library(name: "OrchestratorTerminal", targets: ["OrchestratorTerminal"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", .upToNextMinor(from: "1.11.2"))
     ],
     targets: [
         .target(
             name: "OrchestratorKit",
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "OrchestratorTerminal",
+            dependencies: ["OrchestratorKit", .product(name: "SwiftTerm", package: "SwiftTerm")],
             swiftSettings: swiftSettings
         ),
         .testTarget(

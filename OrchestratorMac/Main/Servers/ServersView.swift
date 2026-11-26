@@ -9,11 +9,26 @@ struct ServersView: View {
 
     private var store: MonitorStore { environment.store }
 
+    @State private var showsRunSheet = false
+
     var body: some View {
         if let id = model.openServerID {
             ServerDetailView(environment: environment, model: model, serverID: id)
         } else {
             list
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showsRunSheet = true
+                        } label: {
+                            Label("Run on Servers", systemImage: "terminal")
+                        }
+                        .help("Run a saved script or a command on several servers")
+                    }
+                }
+                .sheet(isPresented: $showsRunSheet) {
+                    FleetRunSheet(environment: environment, servers: store.servers)
+                }
         }
     }
 

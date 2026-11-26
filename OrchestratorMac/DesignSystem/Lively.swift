@@ -283,7 +283,8 @@ extension SiteTab {
         case .ssl:      return "lock.shield"
         case .workers:  return "gearshape.2"
         case .logs:     return "doc.text.magnifyingglass"
-        case .artisan:  return "terminal"
+        case .artisan:  return "wand.and.stars"
+        case .terminal: return "apple.terminal"
         case .files:    return "folder"
         case .database: return "cylinder.split.1x2"
         case .security: return "hand.raised"
@@ -299,6 +300,7 @@ extension SiteTab {
         case .workers:  return Vivid.teal
         case .logs:     return Vivid.slate
         case .artisan:  return Vivid.purple
+        case .terminal: return Vivid.slate
         case .files:    return Vivid.yellow
         case .database: return Vivid.pink
         case .security: return Vivid.green

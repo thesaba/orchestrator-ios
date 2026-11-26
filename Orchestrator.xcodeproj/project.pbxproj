@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A1C0DE000000000000000001 /* OrchestratorKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1C0DE000000000000000011 /* OrchestratorKit */; };
 		A1C0DE000000000000000002 /* OrchestratorKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1C0DE000000000000000012 /* OrchestratorKit */; };
+		A1C0DE000000000000000003 /* OrchestratorTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = A1C0DE000000000000000013 /* OrchestratorTerminal */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +44,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1C0DE000000000000000002 /* OrchestratorKit in Frameworks */,
+				A1C0DE000000000000000003 /* OrchestratorTerminal in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -111,6 +113,7 @@
 			name = OrchestratorMac;
 			packageProductDependencies = (
 				A1C0DE000000000000000012 /* OrchestratorKit */,
+				A1C0DE000000000000000013 /* OrchestratorTerminal */,
 			);
 			productName = OrchestratorMac;
 			productReference = E894F11A30B70EA300AE2621 /* OrchestratorMac.app */;
@@ -504,6 +507,10 @@
 		A1C0DE000000000000000012 /* OrchestratorKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OrchestratorKit;
+		};
+		A1C0DE000000000000000013 /* OrchestratorTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OrchestratorTerminal;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
