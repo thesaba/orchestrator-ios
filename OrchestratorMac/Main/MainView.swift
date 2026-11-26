@@ -100,20 +100,3 @@ struct MainView: View {
         }
     }
 }
-
-/// Every open alert, full width.
-struct AlertsView: View {
-    let environment: AppEnvironment
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Open alerts")
-                AttentionList(environment: environment, items: environment.store.overview.attention)
-            }
-            .padding(24)
-            .frame(maxWidth: 900, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-}

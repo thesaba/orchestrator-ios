@@ -163,7 +163,7 @@ enum StatusItemMenu {
             })
         }
         menu.addItem(.separator())
-        let quit = ClosureMenuItem("Quit Orchestrator") { NSApp.terminate(nil) }
+        let quit = ClosureMenuItem("Quit Orchestrator") { AppDelegate.quitCompletely() }
         quit.keyEquivalent = "q"
         menu.addItem(quit)
     }
