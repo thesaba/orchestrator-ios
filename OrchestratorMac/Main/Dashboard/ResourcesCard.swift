@@ -6,12 +6,13 @@ import SwiftUI
 struct ResourcesCard: View {
     @Bindable var data: MainDataStore
     var overview: FleetOverview
+    @State private var expanded = false
 
     var body: some View {
         let points = data.resources[data.range] ?? []
-        VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionHeader(title: "Resources · fleet average")
+                SectionHeader(title: "Resources · fleet average", symbol: "chart.xyaxis.line", tint: Vivid.indigo)
                 Picker("Range", selection: $data.range) {
                     ForEach(MetricsRange.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -19,30 +20,30 @@ struct ResourcesCard: View {
                 .labelsHidden()
                 .fixedSize()
                 .controlSize(.small)
+                ExpandChartButton { expanded = true }
             }
             if points.isEmpty {
-                Group {
-                    if data.isLoadingResources || data.resources[data.range] == nil && !overview.servers.isEmpty {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Text(overview.servers.isEmpty ? "Fleet metrics need an admin account." : "No samples in this range yet.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
+                if data.isLoadingResources || data.resources[data.range] == nil && !overview.servers.isEmpty {
+                    HStack(spacing: 10) { SkeletonChart(); SkeletonChart(); SkeletonChart() }
+                } else {
+                    Text(overview.servers.isEmpty ? "Fleet metrics need an admin account." : "No samples in this range yet.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 110)
+                        .card()
                 }
-                .frame(maxWidth: .infinity, minHeight: 110)
-                .card()
             } else {
                 HStack(spacing: 10) {
-                    MetricChart(title: "CPU", points: points, metric: \.cpu, color: .chartCPU,
+                    MetricChart(title: "CPU", symbol: "cpu", points: points, metric: \.cpu, color: .chartCPU,
                                 detail: peakText(points, \.cpu))
-                    MetricChart(title: "RAM", points: points, metric: \.ram, color: .brandTeal,
+                    MetricChart(title: "RAM", symbol: "memorychip", points: points, metric: \.ram, color: .brandTeal,
                                 detail: changeText(points, \.ram))
-                    MetricChart(title: "Disk", points: points, metric: \.disk, color: .statusWarning,
+                    MetricChart(title: "Disk", symbol: "internaldrive", points: points, metric: \.disk, color: Vivid.orange,
                                 detail: fullestDisk ?? changeText(points, \.disk))
                 }
             }
         }
+        .sheet(isPresented: $expanded) { FleetResourcesSheet(data: data) }
     }
 
     private func peakText(_ points: [ResourcePoint], _ metric: KeyPath<ResourcePoint, Double>) -> String {
@@ -70,6 +71,7 @@ struct ResourcesCard: View {
 
 private struct MetricChart: View {
     var title: String
+    var symbol: String
     var points: [ResourcePoint]
     var metric: KeyPath<ResourcePoint, Double>
     var color: Color
@@ -78,32 +80,25 @@ private struct MetricChart: View {
     var body: some View {
         let now: Double = points.last.map { $0[keyPath: metric] } ?? 0
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
+            HStack(spacing: 5) {
+                Image(systemName: symbol).foregroundStyle(color).accessibilityHidden(true)
                 Text(title)
                 Spacer()
                 Text("\(Int(now.rounded()))%")
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)
                     .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: Int(now.rounded()))
             }
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
 
-            Chart(points) { point in
-                AreaMark(x: .value("Time", point.date), y: .value(title, point[keyPath: metric]))
-                    .foregroundStyle(color.opacity(0.2))
-                    .interpolationMethod(.monotone)
-                LineMark(x: .value("Time", point.date), y: .value(title, point[keyPath: metric]))
-                    .foregroundStyle(color)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5))
-                    .interpolationMethod(.monotone)
-            }
-            .chartYScale(domain: 0...100)
-            .chartXAxis(.hidden)
-            .chartYAxis {
-                AxisMarks(values: [0, 50, 100]) { _ in AxisGridLine().foregroundStyle(.quaternary) }
-            }
-            .frame(height: 64)
+            InteractiveLineChart(
+                series: [ChartSeries(name: title, color: color,
+                                     points: points.map { SeriesPoint(date: $0.date, value: $0[keyPath: metric]) })],
+                unit: .percent, yDomain: 0...100, style: .card)
+                .frame(height: 64)
 
             Text(detail)
                 .font(.system(size: 11))
@@ -113,8 +108,7 @@ private struct MetricChart: View {
         .padding(10)
         .frame(maxWidth: .infinity)
         .card()
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("\(title), fleet average")
-        .accessibilityValue("\(Int(now.rounded())) percent now, \(detail)")
     }
 }

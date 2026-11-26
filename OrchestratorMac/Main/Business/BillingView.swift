@@ -18,6 +18,7 @@ struct BillingView: View {
     @State private var error: String?
     @State private var loaded = false
     @State private var paying: Invoice?
+    @State private var chartExpanded = false
 
     private var executor: CommandExecutor { environment.executor }
     private var currency: String { overview?.currencyCode ?? "GEL" }
@@ -28,16 +29,24 @@ struct BillingView: View {
                 if let error {
                     Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(Color.statusDangerText)
                 }
-                tiles
-                HStack(alignment: .top, spacing: 16) {
-                    chartCard.frame(maxWidth: .infinity, alignment: .topLeading)
-                    agingCard.frame(width: 340, alignment: .topLeading)
+                if !loaded {
+                    SkeletonTiles()
+                    HStack(alignment: .top, spacing: 16) { SkeletonChart(height: 220); SkeletonRows(count: 4).frame(width: 340) }
+                    SkeletonRows(count: 6)
+                } else {
+                    tiles
+                    HStack(alignment: .top, spacing: 16) {
+                        chartCard.frame(maxWidth: .infinity, alignment: .topLeading)
+                        agingCard.frame(width: 340, alignment: .topLeading)
+                    }
+                    .appearIn(delay: 0.08)
+                    invoicesCard.appearIn(delay: 0.16)
                 }
-                invoicesCard
             }
             .padding(24)
         }
         .task { await load() }
+        .sheet(isPresented: $chartExpanded) { BillingChartSheet(invoices: invoices, currency: currency) }
         .sheet(item: $paying) { invoice in
             PaymentSheet(invoice: invoice) { amount, method, reference in
                 Task {
@@ -81,8 +90,16 @@ struct BillingView: View {
     }
 
     private func tile(_ caption: String, _ value: String, _ detail: String, tint: Color? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(caption).font(.system(size: 11)).foregroundStyle(.secondary)
+        let icons: [String: (String, Color)] = [
+            "MRR": ("arrow.triangle.2.circlepath", Vivid.green), "Outstanding": ("tray.full.fill", Vivid.blue),
+            "Overdue": ("exclamationmark.circle.fill", Vivid.pink), "Clients": ("person.2.fill", Vivid.purple)
+        ]
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(caption).font(.system(size: 11)).foregroundStyle(.secondary)
+                Spacer()
+                if let icon = icons[caption] { IconBadge(symbol: icon.0, tint: icon.1) }
+            }
             Text(value).font(.system(size: 22, weight: .semibold)).monospacedDigit().foregroundStyle(tint ?? .primary)
                 .lineLimit(1).minimumScaleFactor(0.7)
             Text(detail).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
@@ -99,21 +116,13 @@ struct BillingView: View {
     private var chartCard: some View {
         let months = BillingMonth.last(12, of: invoices, currency: currency)
         return VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Last 12 months · \(currency)")
+            HStack {
+                SectionHeader(title: "Last 12 months · \(currency)", symbol: "chart.bar.fill", tint: Vivid.green)
+                ExpandChartButton { chartExpanded = true }
+            }
             VStack(alignment: .leading, spacing: 8) {
-                Chart {
-                    ForEach(months) { month in
-                        BarMark(x: .value("Month", month.month, unit: .month), y: .value("Invoiced", Money.plain(month.invoiced)))
-                            .foregroundStyle(by: .value("Kind", "Invoiced"))
-                            .position(by: .value("Kind", "Invoiced"))
-                        BarMark(x: .value("Month", month.month, unit: .month), y: .value("Collected", Money.plain(month.collected)))
-                            .foregroundStyle(by: .value("Kind", "Collected"))
-                            .position(by: .value("Kind", "Collected"))
-                    }
-                }
-                .chartForegroundStyleScale(["Invoiced": Color.chartCPU, "Collected": Color.brandTeal])
-                .chartXAxis { AxisMarks(values: .stride(by: .month, count: 2)) { AxisValueLabel(format: .dateTime.month(.abbreviated)) } }
-                .frame(height: 180)
+                MonthBarsChart(months: months, currency: currency)
+                    .frame(height: 180)
                 .accessibilityLabel("Invoiced and collected per month for the last 12 months")
             }
             .padding(12)
@@ -131,7 +140,7 @@ struct BillingView: View {
         ]
         let total = max(1, buckets.reduce(0) { $0 + $1.1 })
         return VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Unpaid by age")
+            SectionHeader(title: "Unpaid by age", symbol: "hourglass", tint: Vivid.orange)
             VStack(alignment: .leading, spacing: 10) {
                 GeometryReader { proxy in
                     HStack(spacing: 2) {
@@ -179,7 +188,7 @@ struct BillingView: View {
         let shown = self.shown
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionHeader(title: "Invoices")
+                SectionHeader(title: "Invoices", symbol: "doc.text.fill", tint: Vivid.green)
                 Picker("Filter", selection: $filter) {
                     ForEach(Filter.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -191,7 +200,7 @@ struct BillingView: View {
                 Button("New Invoice in Web Panel") { WebPanel.open(.home) }.controlSize(.small)
             }
             if shown.isEmpty {
-                EmptyRow(text: loaded ? "No invoices here" : "Loading…", symbol: "doc.text")
+                LoadingOrEmptyRow(isLoading: !loaded, text: "No invoices here", symbol: "doc.text")
             } else {
                 VStack(spacing: 0) {
                     HStack(spacing: 12) {

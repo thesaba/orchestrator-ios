@@ -9,6 +9,7 @@ struct SiteInspector: View {
     let environment: AppEnvironment
     let model: MainWindowModel
     var row: SiteTableRow
+    @State private var responseExpanded = false
 
     private var executor: CommandExecutor { environment.executor }
     private var listing: SiteListing? { environment.store.siteListings?.first { $0.id == row.id } }
@@ -30,6 +31,9 @@ struct SiteInspector: View {
                 more
             }
             .padding(16)
+        }
+        .sheet(isPresented: $responseExpanded) {
+            SiteResponseSheet(data: model.data, siteID: row.id, domain: row.domain)
         }
         .onAppear { model.data.requestSparklines(for: [row.id]) }
         .onChange(of: row.id) { _, id in model.data.requestSparklines(for: [id]) }
@@ -166,8 +170,11 @@ struct SiteInspector: View {
 
     private var response: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionHeader(title: "Response time · 24 h")
-            Sparkline(values: model.data.sparklines[row.id] ?? [])
+            HStack {
+                SectionHeader(title: "Response time · recent checks", symbol: "waveform.path.ecg", tint: Vivid.pink)
+                if (model.data.sparklines[row.id]?.count ?? 0) > 1 { ExpandChartButton { responseExpanded = true } }
+            }
+            Sparkline(points: model.data.sparklines[row.id] ?? [], color: Vivid.pink, reveal: false)
                 .frame(height: 56)
             Text(responseCaption)
                 .font(.system(size: 11))
@@ -184,7 +191,7 @@ struct SiteInspector: View {
 
     private var more: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionHeader(title: "More")
+            SectionHeader(title: "More", symbol: "ellipsis.circle.fill", tint: Vivid.slate)
             HStack(spacing: 6) {
                 Button("Site Logs") { environment.open(.siteLogs(siteID: row.id)) }
                 Button(row.maintenanceMode ? "End Maintenance…" : "Maintenance…") {

@@ -32,7 +32,7 @@ struct AlertsView: View {
         let items = store.overview.attention
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionHeader(title: "Open alerts")
+                SectionHeader(title: "Open alerts", symbol: "bell.badge.fill", tint: Vivid.orange)
                 Spacer()
                 Text(items.isEmpty ? "None" : store.overview.alertBreakdown)
                     .font(.system(size: 12))
@@ -69,9 +69,9 @@ struct AlertsView: View {
 
     private var resolvedSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Resolved recently")
+            SectionHeader(title: "Resolved recently", symbol: "checkmark.seal.fill", tint: Vivid.green)
             if resolved.isEmpty {
-                EmptyRow(text: loaded ? "Nothing resolved recently" : "Loading…", symbol: "clock")
+                LoadingOrEmptyRow(isLoading: !loaded, text: "Nothing resolved recently", symbol: "clock")
             } else {
                 VStack(spacing: 0) {
                     columnsHeader(["Alert", "Server", "Lasted", "Resolved"])

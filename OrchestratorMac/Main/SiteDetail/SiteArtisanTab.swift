@@ -55,7 +55,14 @@ struct SiteArtisanTab: View {
                 .listStyle(.sidebar)
                 .overlay {
                     if commands.isEmpty {
-                        Text(hasLoaded ? "No commands available" : "Loading…").foregroundStyle(.secondary)
+                        if hasLoaded {
+                            Text("No commands available").foregroundStyle(.secondary)
+                        } else {
+                            VStack(spacing: 12) { ForEach(0..<8, id: \.self) { _ in SkeletonBar(height: 10) } }
+                                .padding(16)
+                                .shimmering()
+                                .frame(maxHeight: .infinity, alignment: .top)
+                        }
                     }
                 }
             }
@@ -113,7 +120,7 @@ struct SiteArtisanTab: View {
         if let session {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    SectionHeader(title: "Output · \(session.title)")
+                    SectionHeader(title: "Output · \(session.title)", symbol: "text.alignleft", tint: Vivid.purple)
                     Spacer()
                     Text(stateText(session)).font(.system(size: 11)).foregroundStyle(.secondary)
                 }

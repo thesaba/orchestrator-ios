@@ -110,7 +110,7 @@ struct SiteFilesTab: View {
                     }
                 }
             } else {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                SkeletonRows(count: 8, rowHeight: 28).padding(12).frame(maxHeight: .infinity, alignment: .top)
             }
             if let root = listing?.rootPath {
                 Text(root + (directory == "/" ? "" : directory))
@@ -280,7 +280,12 @@ struct SiteFilesTab: View {
                     .accessibilityLabel("Contents of \(openFile ?? "file")")
             }
         } else {
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(0..<14, id: \.self) { line in SkeletonBar(width: CGFloat([340, 220, 410, 180, 300, 260][line % 6]), height: 9) }
+            }
+            .padding(20)
+            .shimmering()
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 

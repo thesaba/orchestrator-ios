@@ -111,7 +111,7 @@ struct SiteSecurityTab: View {
 
     private var passwordCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Password prompt")
+            SectionHeader(title: "Password prompt", symbol: "person.badge.key.fill", tint: Vivid.orange)
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Ask visitors for a user name and password", isOn: $basicAuth)
                     .font(.system(size: 12))
@@ -138,7 +138,7 @@ struct SiteSecurityTab: View {
 
     private var addressCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Address rules")
+            SectionHeader(title: "Address rules", symbol: "network.badge.shield.half.filled", tint: Vivid.teal)
             VStack(alignment: .leading, spacing: 10) {
                 Picker("Rule", selection: $ipMode) {
                     Text("Off").tag("off")

@@ -28,12 +28,16 @@ struct SitesView: View {
     private var table: some View {
         let rows = self.rows
         let columns = SiteColumns(width: tableWidth)
+        HStack(spacing: 0) {
         VStack(spacing: 0) {
             filterBar(count: rows.count)
             Divider()
             SiteColumnsHeader(columns: columns)
             Divider()
-            if rows.isEmpty {
+            if !store.hasLoaded {
+                SkeletonRows(count: 8, rowHeight: 30).padding(16)
+                Spacer()
+            } else if rows.isEmpty {
                 ContentUnavailableView(model.searchText.isEmpty ? "No sites" : "No matching sites",
                                        systemImage: "globe",
                                        description: Text(model.searchText.isEmpty ? "Nothing matches this filter." : "Nothing matches “\(model.searchText)”."))
@@ -63,17 +67,27 @@ struct SitesView: View {
             }
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { tableWidth = $0 }
-        .inspector(isPresented: $model.showsInspector) {
+
+        // A plain side panel instead of `.inspector`: it is simply there when the page opens,
+        // with no slide-in, and fades when shown or hidden.
+        if model.showsInspector {
+            Divider()
             Group {
                 if let id = model.selectedSiteID, let row = rows.first(where: { $0.id == id }) {
                     SiteInspector(environment: environment, model: model, row: row)
+                        .id(row.id)
                 } else {
                     ContentUnavailableView("No site selected", systemImage: "sidebar.right",
                                            description: Text("Select a site to see its details."))
                 }
             }
-            .inspectorColumnWidth(min: 280, ideal: 320, max: 420)
+            .frame(width: 320)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .background(.background)
+            .transition(.opacity)
         }
+        }
+        .animation(.easeOut(duration: 0.15), value: model.showsInspector)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {

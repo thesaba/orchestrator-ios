@@ -26,6 +26,7 @@ struct MainView: View {
                     model.data.refreshAll()
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
+                        .symbolEffect(.rotate, options: .repeating, isActive: store.isRefreshing)
                 }
                 .help("Refresh now")
                 .disabled(environment.session.phase != .signedIn)

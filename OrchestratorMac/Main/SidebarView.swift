@@ -13,9 +13,15 @@ struct SidebarView: View {
             ForEach(SidebarSection.allCases) { section in
                 Section(section.rawValue) {
                     ForEach(section.items) { item in
-                        Label(item.title, systemImage: item.symbol)
-                            .badge(badge(for: item))
-                            .tag(item)
+                        Label {
+                            Text(item.title)
+                        } icon: {
+                            Image(systemName: item.symbol)
+                                .foregroundStyle(item.tint)
+                                .symbolEffect(.bounce, value: item == .alerts ? store.overview.alertCount : 0)
+                        }
+                        .badge(badge(for: item))
+                        .tag(item)
                     }
                 }
             }
