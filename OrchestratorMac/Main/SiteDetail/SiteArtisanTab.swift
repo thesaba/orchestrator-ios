@@ -12,11 +12,9 @@ struct SiteArtisanTab: View {
     @State private var selected: String?
     @State private var filter = ""
     @State private var hasLoaded = false
-
-    private var session: LogSession? {
-        guard let session = environment.logs.session(for: siteID), case .artisan = session.kind else { return nil }
-        return session
-    }
+    /// The command run from this tab. Held here because `LogCoordinator` is not observable:
+    /// the session itself is, so its lines appear as they stream in.
+    @State private var session: LogSession?
 
     private var groups: [(name: String, commands: [ArtisanCommand])] {
         let needle = filter.trimmingCharacters(in: .whitespaces).lowercased()
@@ -71,6 +69,7 @@ struct SiteArtisanTab: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .task(id: siteID) {
+            if let current = environment.logs.session(for: siteID), case .artisan = current.kind { session = current }
             commands = ((try? await environment.api.artisanCommands(siteID: siteID)) ?? []).sorted { $0.cmd < $1.cmd }
             hasLoaded = true
             if selected == nil { selected = commands.first { $0.cmd.hasPrefix("about") }?.cmd ?? commands.first?.cmd }
@@ -88,7 +87,9 @@ struct SiteArtisanTab: View {
                     guard let cmd = command?.cmd else { return }
                     let executor = environment.executor
                     let id = siteID
-                    Task { await executor.runArtisanInline(siteID: id, command: cmd) }
+                    Task {
+                        if let started = await executor.runArtisanInline(siteID: id, command: cmd) { session = started }
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(command == nil || session?.isFinished == false)
@@ -132,7 +133,9 @@ struct SiteArtisanTab: View {
         case .connecting:  return "Connecting…"
         case .running:     return "Running"
         case .succeeded:   return "Finished"
-        case .failed:      return "Failed"
+        // A quick command can finish before the stream attaches: its output is replayed and
+        // the panel answers "idle", without an exit status.
+        case .failed:      return session.runner.lastStatus == "idle" ? "Finished" : "Failed"
         case .cancelled:   return "Cancelled"
         case .notRunning:  return "Finished"
         }

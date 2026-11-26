@@ -13,6 +13,8 @@ final class WindowCoordinator {
 
     func showMain() {
         guard let environment else { return }
+        // Back in the Dock after a quit from the Dock left only the menu bar item.
+        if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
         let controller = main ?? MainWindowController(environment: environment)
         main = controller
         controller.show()

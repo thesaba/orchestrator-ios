@@ -18,6 +18,11 @@ struct OrchestratorMacApp: App {
                     .keyboardShortcut(",")
             }
             CommandGroup(replacing: .newItem) {}
+            // ⌘Q keeps monitoring in the menu bar; quitting for good is in the menu bar item's menu.
+            CommandGroup(replacing: .appTermination) {
+                Button("Close to Menu Bar") { AppDelegate.retreatToMenuBar() }
+                    .keyboardShortcut("q")
+            }
             CommandGroup(before: .windowList) {
                 Button("Orchestrator") { AppEnvironment.current?.windows.showMain() }
                     .keyboardShortcut("0")

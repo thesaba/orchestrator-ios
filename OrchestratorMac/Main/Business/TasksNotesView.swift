@@ -12,6 +12,9 @@ struct TasksNotesView: View {
     @State private var loaded = false
     @State private var error: String?
 
+    /// The column a dragged task is over, for the drop highlight.
+    @State private var dropTarget: TaskColumn?
+
     @State private var openNoteID: Int?
     @State private var noteTitle = ""
     @State private var noteBody = ""
@@ -64,19 +67,36 @@ struct TasksNotesView: View {
                             }
                             ForEach(columns[column] ?? []) { task in
                                 TaskCard(task: task)
+                                    .draggable(String(task.id)) {
+                                        TaskCard(task: task).frame(width: 220).opacity(0.9)
+                                    }
                                     .rightClickMenu { menu(for: task, in: column) }
                             }
                             if (columns[column] ?? []).isEmpty {
-                                Text(loaded ? "Nothing here" : "Loading…").font(.system(size: 11)).foregroundStyle(.tertiary)
+                                Text(loaded ? "Drop tasks here" : "Loading…").font(.system(size: 11)).foregroundStyle(.tertiary)
                             }
+                            Spacer(minLength: 0)
                         }
                         .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .card()
+                        .frame(maxWidth: .infinity, minHeight: 320, alignment: .topLeading)
+                        .card(tint: dropTarget == column ? .tintInfo : nil)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(dropTarget == column ? Color.accentColor : .clear, lineWidth: 2)
+                        }
+                        .dropDestination(for: String.self) { ids, _ in
+                            guard let id = ids.first.flatMap(Int.init),
+                                  let task = tasks.first(where: { $0.id == id }),
+                                  TaskColumn(rawValue: task.status.lowercased()) != column else { return false }
+                            move(task, to: column)
+                            return true
+                        } isTargeted: { inside in
+                            if inside { dropTarget = column } else if dropTarget == column { dropTarget = nil }
+                        }
                     }
                 }
             }
-            Text("Right-click a task to move it.").font(.system(size: 11)).foregroundStyle(.tertiary)
+            Text("Drag a task to another column, or right-click it.").font(.system(size: 11)).foregroundStyle(.tertiary)
         }
         .padding(20)
     }
@@ -93,14 +113,16 @@ struct TasksNotesView: View {
         return menu
     }
 
+    /// Moves the card at once, then saves; a failed save puts it back.
     private func move(_ task: WorkTask, to column: TaskColumn) {
+        if let index = tasks.firstIndex(where: { $0.id == task.id }) { tasks[index].status = column.rawValue }
         Task {
             do {
                 try await api.updateTask(id: task.id, TaskPatch(status: column.rawValue))
-                await load()
             } catch {
                 AlertPresenter.showError("Could not move the task", APIError.wrap(error).errorDescription)
             }
+            await load()
         }
     }
 

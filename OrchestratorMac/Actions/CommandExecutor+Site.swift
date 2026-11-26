@@ -138,15 +138,19 @@ extension CommandExecutor {
     // MARK: - Artisan inside the page
 
     /// Like `runArtisan`, with the output shown in the Artisan tab instead of a panel.
-    func runArtisanInline(siteID: Int, command: String) async {
+    /// - Returns: the attached session, whose lines the tab shows; nil when cancelled or failed.
+    func runArtisanInline(siteID: Int, command: String) async -> LogSession? {
         let domain = domain(of: siteID)
         guard await confirm(artisanConfirmation(siteID: siteID, command: command),
-                            reason: "run \(command) on \(domain)") else { return }
+                            reason: "run \(command) on \(domain)") else { return nil }
         do {
             try await performArtisan(siteID: siteID, command: command, showLog: false)
-            environment.logs.startInline(LogSession(siteID: siteID, domain: domain, kind: .artisan(command: command)))
+            let session = LogSession(siteID: siteID, domain: domain, kind: .artisan(command: command))
+            environment.logs.startInline(session)
+            return session
         } catch {
             AlertPresenter.showError("Could not run \(command)", APIError.wrap(error).errorDescription)
+            return nil
         }
     }
 }
