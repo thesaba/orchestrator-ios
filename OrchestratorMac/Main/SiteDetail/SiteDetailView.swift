@@ -56,6 +56,7 @@ struct SiteDetailView: View {
         case .workers:  SiteWorkersTab(environment: environment, siteID: row.id)
         case .logs:     SiteLogsTab(environment: environment, row: row)
         case .artisan:  SiteArtisanTab(environment: environment, siteID: row.id)
+        case .terminal: SiteTerminalTab(environment: environment, row: row)
         case .files:    SiteFilesTab(environment: environment, siteID: row.id)
         case .database: SiteDatabaseTab(environment: environment, siteID: row.id)
         case .security: SiteSecurityTab(environment: environment, row: row)
@@ -195,5 +196,30 @@ private struct SiteTabBar: View {
             .padding(.horizontal, 14)
         }
         .scrollIndicators(.never)
+    }
+}
+
+/// A shell in the site's folder on its server, over the panel's terminal WebSocket.
+/// Needs the password session; the API token cannot open it.
+struct SiteTerminalTab: View {
+    let environment: AppEnvironment
+    var row: SiteTableRow
+
+    private var admin: AdminAccess { environment.admin }
+
+    var body: some View {
+        if admin.isSignedIn {
+            TerminalPane(title: row.domain,
+                         warning: "Everything typed here runs on the live server.",
+                         makeURL: { admin.siteTerminalURL(siteID: row.id) })
+                .id(row.id)
+        } else {
+            TerminalLocked(title: "Terminal for \(row.domain)",
+                           detail: "Opens a shell in the site’s folder on its server. It needs a sign-in with your email and password (and 2FA code when it is on).",
+                           buttonTitle: "Sign In…") {
+                let admin = self.admin, email = environment.session.user?.email
+                Task { _ = await AdminPrompt.ensureSignedIn(admin, suggestedEmail: email) }
+            }
+        }
     }
 }

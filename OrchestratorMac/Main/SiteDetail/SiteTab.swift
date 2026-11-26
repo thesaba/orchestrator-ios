@@ -2,7 +2,7 @@ import Foundation
 
 /// The tabs across the top of a site's page.
 enum SiteTab: String, CaseIterable, Identifiable, Hashable {
-    case overview, deploys, config, ssl, workers, logs, artisan
+    case overview, deploys, config, ssl, workers, logs, artisan, terminal
     case files, database, security
 
     var id: String { rawValue }
@@ -16,6 +16,7 @@ enum SiteTab: String, CaseIterable, Identifiable, Hashable {
         case .workers:  return "Workers"
         case .logs:     return "Logs"
         case .artisan:  return "Artisan"
+        case .terminal: return "Terminal"
         case .files:    return "Files"
         case .database: return "Database"
         case .security: return "Security"

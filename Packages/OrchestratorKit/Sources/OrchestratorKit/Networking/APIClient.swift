@@ -23,13 +23,16 @@ public final class APIClient: @unchecked Sendable {
 
     private let baseURL: URL
     private let tokenStore: TokenStore
+    /// When set, sent instead of the stored token (the Mac app's separate admin session).
+    private let fixedToken: String?
     private let session: URLSession
     private let streamSession: URLSession
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Orchestrator", category: "api")
 
-    public init(baseURL: URL = APIConfig.baseURL, tokenStore: TokenStore = .shared) {
+    public init(baseURL: URL = APIConfig.baseURL, tokenStore: TokenStore = .shared, fixedToken: String? = nil) {
         self.baseURL = baseURL
         self.tokenStore = tokenStore
+        self.fixedToken = fixedToken
 
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = APIConfig.requestTimeout
@@ -194,7 +197,7 @@ public final class APIClient: @unchecked Sendable {
         // With app lock on, the token only exists in memory after a successful unlock.
         // Sending an unauthenticated request would come back 401 and look like an expired
         // credential, so fail fast with something the UI can recognise instead.
-        if tokenStore.isSealed { throw APIError.locked }
+        if fixedToken == nil, tokenStore.isSealed { throw APIError.locked }
 
         let normalized = path.hasPrefix("/") ? path : "/" + path
         guard var components = URLComponents(string: baseURL.absoluteString + APIConfig.apiPath + normalized) else {
@@ -212,7 +215,7 @@ public final class APIClient: @unchecked Sendable {
         if let contentType {
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
-        if let token = tokenStore.token, !token.isEmpty {
+        if let token = fixedToken ?? tokenStore.token, !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         return request
@@ -253,7 +256,8 @@ public final class APIClient: @unchecked Sendable {
         let message = Self.errorMessage(from: data)
         switch http.statusCode {
         case 401:
-            UnauthorizedSignal.shared.fire()
+            // A 401 on the admin session ends only that session, never the main sign-in.
+            if fixedToken == nil { UnauthorizedSignal.shared.fire() }
             throw APIError.unauthorized(message)
         case 403:
             throw APIError.forbidden(message)
