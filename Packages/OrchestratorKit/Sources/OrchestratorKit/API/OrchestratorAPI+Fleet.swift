@@ -25,3 +25,10 @@ extension OrchestratorAPI {
         try await client.get("/sites")
     }
 }
+
+extension OrchestratorAPI {
+    /// One server's CPU, RAM and disk history. Read-only.
+    public func fleetMetrics(serverID: Int, range: MetricsRange) async throws -> FleetMetricsHistory {
+        try await client.get("/fleet/servers/\(serverID)/metrics", query: [URLQueryItem(name: "range", value: range.rawValue)])
+    }
+}

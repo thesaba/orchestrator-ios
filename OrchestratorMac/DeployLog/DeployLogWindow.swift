@@ -54,6 +54,8 @@ final class DeployLogWindowController: NSObject, NSWindowDelegate {
 struct DeployLogWindowView: View {
     @Bindable var model: DeployLogWindowModel
     var onShrink: () -> Void
+    /// Inside the main window's Deploys tab: no traffic-light gap and no shrink button.
+    var embedded = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -75,7 +77,7 @@ struct DeployLogWindowView: View {
                 }
             }
         }
-        .frame(minWidth: 820, minHeight: 420)
+        .frame(minWidth: embedded ? 600 : 820, minHeight: 420)
         .sheet(isPresented: $model.isShowingExplanation) {
             ExplanationSheet(model: model)
         }
@@ -100,15 +102,17 @@ struct DeployLogWindowView: View {
             Toggle("Errors only", isOn: $model.errorsOnly)
                 .toggleStyle(.button)
             Button("Copy log") { model.copyLog() }
-            Button(action: onShrink) {
-                Image(systemName: "arrow.down.right.and.arrow.up.left")
+            if !embedded {
+                Button(action: onShrink) {
+                    Image(systemName: "arrow.down.right.and.arrow.up.left")
+                }
+                .disabled(!model.isShowingLive)
+                .help("Shrink to the compact panel")
+                .accessibilityLabel("Shrink to compact panel")
             }
-            .disabled(!model.isShowingLive)
-            .help("Shrink to the compact panel")
-            .accessibilityLabel("Shrink to compact panel")
         }
         .controlSize(.regular)
-        .padding(.leading, 86) // clear the traffic lights
+        .padding(.leading, embedded ? 16 : 86) // clear the traffic lights
         .padding(.trailing, 12)
         .frame(height: 52)
     }

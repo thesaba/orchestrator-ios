@@ -148,6 +148,7 @@ enum StatusItemMenu {
     // MARK: - App
 
     private static func addAppItems(to menu: NSMenu, environment: AppEnvironment, signedIn: Bool) {
+        menu.addItem(ClosureMenuItem("Open Orchestrator", symbol: "macwindow") { environment.windows.showMain() })
         menu.addItem(ClosureMenuItem("Settings…", symbol: "gearshape") { environment.windows.showSettings() })
 
         let launchAtLogin = LaunchAtLogin()

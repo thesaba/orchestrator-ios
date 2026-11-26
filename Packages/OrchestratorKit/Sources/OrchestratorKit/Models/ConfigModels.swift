@@ -89,12 +89,19 @@ public struct FileReadResponse: Decodable, Sendable {
     public var content: String
     public var path: String?
     public var truncated: Bool?
+    /// The content is base64 (images and other binary files).
+    public var binary: Bool
+    public var mime: String?
+    public var size: Int?
 
     public init(from decoder: Decoder) throws {
         let value = try decoder.singleValueContainer().decode(JSONValue.self)
         content = value["content"]?.stringValue ?? value["body"]?.stringValue ?? ""
         path = value["path"]?.stringValue
         truncated = value["truncated"]?.boolValue
+        binary = value["binary"]?.boolValue ?? false
+        mime = value["mime"]?.stringValue
+        size = value["size"]?.intValue
     }
 }
 

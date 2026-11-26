@@ -62,7 +62,8 @@ final class AppEnvironment {
         Task {
             await session.bootstrap()
             sessionPhaseChanged()
-            // No Dock icon: without a token, open the sign-in window so launch is not silent.
+            // The main window opens at launch; without a token the sign-in window comes first.
+            windows.showMain()
             if session.phase == .signedOut {
                 windows.showSignIn()
             }
@@ -85,6 +86,7 @@ final class AppEnvironment {
         case .signedOut:
             scheduler.stop()
             store.reset()
+            windows.main?.model.data.reset()
         case .launching:
             break
         }
@@ -115,9 +117,14 @@ final class AppEnvironment {
         case .siteLogs(let siteID):
             windows.showSiteLogs(siteID: siteID, domain: executor.domain(of: siteID))
         case .site(let siteID):
-            WebPanel.open(.site(id: siteID))
+            windows.showMain()
+            windows.main?.model.openSite(siteID)
+        case .siteTab(let siteID, let tab):
+            windows.showMain()
+            windows.main?.model.openSite(siteID, tab: SiteTab(rawValue: tab) ?? .overview)
         case .server(let serverID):
-            WebPanel.open(.server(id: serverID))
+            windows.showMain()
+            windows.main?.model.openServer(serverID)
         }
     }
 

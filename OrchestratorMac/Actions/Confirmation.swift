@@ -57,6 +57,24 @@ enum AlertPresenter {
         return value.isEmpty ? nil : value
     }
 
+    /// One line of text, for a new file or folder name; nil when cancelled or empty.
+    static func askText(title: String, message: String, initial: String = "", confirmTitle: String) -> String? {
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        field.stringValue = initial
+        field.setAccessibilityLabel(title)
+        alert.accessoryView = field
+        alert.addButton(withTitle: confirmTitle)
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        let value = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
     static func showError(_ title: String, _ message: String?) {
         NSApp.activate()
         let alert = NSAlert()

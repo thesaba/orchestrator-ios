@@ -55,6 +55,16 @@ extension OrchestratorAPI {
     private struct ChmodBody: Encodable, Sendable { var paths: [String]; var mode: String; var recursive: Bool }
     private struct ChownBody: Encodable, Sendable { var paths: [String]; var owner: String; var group: String; var recursive: Bool }
 
+    /// Uploads files into `destination` (a path relative to the site root).
+    /// `POST /files/upload?dest=&overwrite=0|1`, multipart.
+    @discardableResult
+    public func uploadFiles(siteID: Int, destination: String, files: [(name: String, data: Data)], overwrite: Bool) async throws -> Data {
+        try await client.upload("/sites/\(siteID)/files/upload",
+                                query: [URLQueryItem(name: "dest", value: destination),
+                                        URLQueryItem(name: "overwrite", value: overwrite ? "1" : "0")],
+                                files: files)
+    }
+
     @discardableResult
     public func writeFile(siteID: Int, path: String, content: String) async throws -> Data {
         try await client.send(.put, "/sites/\(siteID)/files/write", body: WriteBody(path: path, content: content))

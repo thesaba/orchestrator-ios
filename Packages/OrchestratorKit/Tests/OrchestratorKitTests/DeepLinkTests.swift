@@ -12,6 +12,8 @@ struct DeepLinkTests {
         ("orchestrator://site/12/log", .deployLog(siteID: 12)),
         ("orchestrator://site/12/logs", .siteLogs(siteID: 12)),
         ("orchestrator://site/12", .site(siteID: 12)),
+        ("orchestrator://site/12/Config", .siteTab(siteID: 12, tab: "config")),
+        ("orchestrator://site/12/workers", .siteTab(siteID: 12, tab: "workers")),
         ("orchestrator://server/5", .server(serverID: 5))
     ])
     func parses(text: String, expected: DeepLink) throws {
@@ -21,7 +23,7 @@ struct DeepLinkTests {
 
     @Test(arguments: [
         "https://overview", "orchestrator://", "orchestrator://palette", "orchestrator://deploy/12", "orchestrator://site/abc/log",
-        "orchestrator://site/0", "orchestrator://site/12/rollback", "orchestrator://overview/extra",
+        "orchestrator://site/0", "orchestrator://site/12/rollback", "orchestrator://site/12/backups", "orchestrator://overview/extra",
         "orchestrator://server/-3"
     ])
     func rejects(text: String) throws {
@@ -31,7 +33,7 @@ struct DeepLinkTests {
 
     @Test func roundTrips() {
         let links: [DeepLink] = DeepLink.Segment.allCases.map { .popover($0) }
-            + [.settings, .deployLog(siteID: 3), .siteLogs(siteID: 3), .site(siteID: 3), .server(serverID: 9)]
+            + [.settings, .deployLog(siteID: 3), .siteLogs(siteID: 3), .site(siteID: 3), .siteTab(siteID: 3, tab: "ssl"), .server(serverID: 9)]
         for link in links {
             #expect(DeepLink(url: link.url) == link)
         }

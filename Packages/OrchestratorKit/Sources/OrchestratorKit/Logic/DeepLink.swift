@@ -10,8 +10,9 @@ import Foundation
 /// | `orchestrator://settings` | Settings |
 /// | `orchestrator://site/12/log` | the deploy log window of site 12 |
 /// | `orchestrator://site/12/logs` | the Laravel log of site 12 |
-/// | `orchestrator://site/12` | site 12 in the web panel |
-/// | `orchestrator://server/5` | server 5 in the web panel |
+/// | `orchestrator://site/12` | site 12's page in the main window |
+/// | `orchestrator://site/12/config` (also `overview`, `deploys`, `ssl`, `workers`, `artisan`, `files`, `database`, `security`) | that tab of site 12's page |
+/// | `orchestrator://server/5` | server 5's page in the main window |
 public enum DeepLink: Sendable, Hashable {
     public enum Segment: String, Sendable, CaseIterable {
         case overview, servers, sites, alerts
@@ -22,7 +23,12 @@ public enum DeepLink: Sendable, Hashable {
     case deployLog(siteID: Int)
     case siteLogs(siteID: Int)
     case site(siteID: Int)
+    /// One tab of a site's page; `tab` is one of `SiteTabName`.
+    case siteTab(siteID: Int, tab: String)
     case server(serverID: Int)
+
+    /// The site-page tabs a link can name.
+    public static let siteTabNames: Set<String> = ["overview", "deploys", "config", "ssl", "workers", "artisan", "files", "database", "security"]
 
     public static let scheme = "orchestrator"
 
@@ -48,6 +54,8 @@ public enum DeepLink: Sendable, Hashable {
             switch parts[1].lowercased() {
             case "log":  self = .deployLog(siteID: id)
             case "logs": self = .siteLogs(siteID: id)
+            case let tab where Self.siteTabNames.contains(tab):
+                self = .siteTab(siteID: id, tab: tab)
             default:     return nil
             }
         default:
@@ -63,6 +71,7 @@ public enum DeepLink: Sendable, Hashable {
         case .deployLog(let id):        path = "site/\(id)/log"
         case .siteLogs(let id):         path = "site/\(id)/logs"
         case .site(let id):             path = "site/\(id)"
+        case .siteTab(let id, let tab): path = "site/\(id)/\(tab)"
         case .server(let id):           path = "server/\(id)"
         }
         // Built from known parts only, so the force unwrap cannot fail.

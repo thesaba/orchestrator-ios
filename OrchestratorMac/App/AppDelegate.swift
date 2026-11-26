@@ -29,6 +29,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pendingLinks.removeAll()
     }
 
+    /// Clicking the Dock icon with no window open brings the main window back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { environment?.windows.showMain() }
+        return true
+    }
+
+    /// Closing the window keeps the app running in the menu bar.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
     func applicationWillTerminate(_ notification: Notification) {
         environment?.stop()
     }

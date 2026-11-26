@@ -20,7 +20,7 @@ public struct DatabaseBackup: Decodable, Sendable, Hashable, Identifiable {
             return
         }
         name = value["name"]?.stringValue ?? value["filename"]?.stringValue ?? value["file"]?.stringValue ?? "backup"
-        size = (value["size"] ?? value["bytes"])?.intValue
+        size = (value["sizeBytes"] ?? value["size"] ?? value["bytes"])?.intValue
         createdAt = (value["createdAt"] ?? value["created_at"] ?? value["modified"] ?? value["date"])?
             .stringValue.flatMap(DateParsing.parse)
     }
@@ -88,6 +88,8 @@ public struct QueryResult: Decodable, Sendable {
     public var affectedRows: Int?
     public var message: String?
     public var durationMs: Int?
+    /// The panel returns at most 1000 rows.
+    public var truncated: Bool
     public var raw: JSONValue
 
     public init(from decoder: Decoder) throws {
@@ -96,7 +98,8 @@ public struct QueryResult: Decodable, Sendable {
 
         affectedRows = (value["affectedRows"] ?? value["rowCount"] ?? value["changes"])?.intValue
         message = value["message"]?.stringValue
-        durationMs = (value["durationMs"] ?? value["duration"] ?? value["timeMs"])?.intValue
+        durationMs = (value["elapsedMs"] ?? value["durationMs"] ?? value["duration"] ?? value["timeMs"])?.intValue
+        truncated = value["truncated"]?.boolValue ?? false
 
         let rowsNode = value["rows"] ?? value["results"] ?? value["data"] ?? value
         let rowObjects = rowsNode.arrayValue ?? []
@@ -126,7 +129,7 @@ public struct QueryResult: Decodable, Sendable {
                 }
             }
             if let array = row.arrayValue {
-                return array.map { $0.stringValue ?? "" }
+                return array.map { $0.isNull ? "NULL" : ($0.stringValue ?? "") }
             }
             return [row.stringValue ?? ""]
         }

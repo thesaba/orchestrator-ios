@@ -88,9 +88,23 @@ enum Fixtures {
        "branch": "develop", "deployQueued": null, "maintenanceMode": false, "disabled": false,
        "deployments": [{"id": 80, "siteId": 11, "commit": "a41c9e2ff", "branch": "develop", "status": "success",
                         "log": null, "createdAt": "2026-11-24T18:02:00.000Z"}],
-       "sslDaysLeft": 70, "billingSuspended": false},
+       "sslDaysLeft": 70, "billingSuspended": false, "stagingOf": 10},
       {"id": 12, "name": "Gamma", "domain": "c.example", "status": "active", "disabled": true, "deployments": []}
     ]
+    """
+
+    static let apm = """
+    {"hours": 24, "sites": [
+      {"siteId": 10, "domain": "a.example", "samples": 288, "uptimePct": 100, "avg": 120, "p50": 110, "p95": 212, "p99": 300, "max": 410},
+      {"siteId": 11, "domain": "b.example", "samples": 288, "uptimePct": 97, "avg": 300, "p50": 280, "p95": 540, "p99": 800, "max": 1200}
+    ]}
+    """
+
+    static let deployStats = """
+    {"days": [
+      {"date": "2026-11-24T00:00:00.000Z", "success": 4, "failed": 0},
+      {"date": "2026-11-25T00:00:00.000Z", "success": 5, "failed": 1}
+    ]}
     """
 
     static func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {

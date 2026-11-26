@@ -13,10 +13,10 @@ struct AttentionList: View {
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     if index > 0 { Divider() }
-                    AttentionRow(item: item) { siteID in
+                    AttentionRow(item: item, renew: { siteID in
                         let executor = environment.executor
                         Task { await executor.renewCertificate(siteID: siteID) }
-                    }
+                    }, view: { environment.open($0) })
                 }
             }
             .card(tint: items.contains { $0.severity == .failure } ? .tintDanger : .tintWarning)
@@ -27,6 +27,8 @@ struct AttentionList: View {
 private struct AttentionRow: View {
     var item: AttentionItem
     var renew: (Int) -> Void
+    /// Opens the server's or site's page in the main window.
+    var view: (DeepLink) -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -44,11 +46,11 @@ private struct AttentionRow: View {
             .accessibilityElement(children: .combine)
 
             Button(buttonTitle) {
-                if case .certificate(let siteID) = item.subject { renew(siteID) } else { WebPanel.open(destination) }
+                if case .certificate(let siteID) = item.subject { renew(siteID) } else { view(destination) }
             }
             .buttonStyle(RowButtonStyle())
-            .help(isCertificate ? "Renew the certificate (asks for confirmation)" : "Open in the web panel")
-            .accessibilityLabel(isCertificate ? "Renew the certificate of \(item.source)" : "View \(item.source) in the web panel")
+            .help(isCertificate ? "Renew the certificate (asks for confirmation)" : "Open \(item.source)")
+            .accessibilityLabel(isCertificate ? "Renew the certificate of \(item.source)" : "View \(item.source)")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -66,11 +68,11 @@ private struct AttentionRow: View {
 
     private var buttonTitle: String { isCertificate ? "Renew" : "View" }
 
-    private var destination: WebPanel.Destination {
+    private var destination: DeepLink {
         switch item.subject {
-        case .server(let id, _, _):   return .server(id: id)
-        case .certificate(let id):    return .site(id: id)
-        case .siteDown(let id):       return .site(id: id)
+        case .server(let id, _, _):   return .server(serverID: id)
+        case .certificate(let id):    return .siteTab(siteID: id, tab: "ssl")
+        case .siteDown(let id):       return .site(siteID: id)
         }
     }
 }

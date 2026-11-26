@@ -85,3 +85,24 @@ final class ClosureMenuItem: NSMenuItem {
         MainActor.assumeIsolated { handler() }
     }
 }
+
+/// A small icon button that opens an AppKit menu built at click time. Unlike SwiftUI's
+/// `Menu`, the open menu is a snapshot, so a background refresh cannot close it.
+struct PopUpMenuButton: View {
+    var symbol = "ellipsis.circle"
+    var label: String
+    let build: @MainActor () -> NSMenu
+
+    var body: some View {
+        Button {
+            guard let window = NSApp.keyWindow, let anchor = window.contentView else { return }
+            let point = anchor.convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            let menu = build()
+            DispatchQueue.main.async { menu.popUp(positioning: nil, at: point, in: anchor) }
+        } label: {
+            Image(systemName: symbol)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(label)
+    }
+}

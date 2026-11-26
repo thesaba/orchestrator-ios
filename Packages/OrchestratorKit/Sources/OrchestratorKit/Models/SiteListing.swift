@@ -19,15 +19,19 @@ public struct SiteListing: Decodable, Sendable, Hashable, Identifiable {
     public var sslEnabled: Bool
     public var sslDaysLeft: Int?
     public var billingSuspended: Bool
+    public var phpVersion: String?
+    /// Set when this site is a staging copy of the site with this id.
+    public var stagingOf: Int?
     public var deployments: [DeploymentRecord]
 
     public var latestDeployment: DeploymentRecord? { deployments.first }
     public var isDeploying: Bool { latestDeployment?.isRunning ?? false }
+    public var isStaging: Bool { stagingOf != nil }
 
     public init(id: Int, name: String, domain: String, serverId: Int? = nil, status: String = "active",
                 branch: String? = nil, disabled: Bool = false, maintenanceMode: Bool = false,
                 deployQueued: Bool = false, sslEnabled: Bool = false, sslDaysLeft: Int? = nil,
-                billingSuspended: Bool = false, deployments: [DeploymentRecord] = []) {
+                billingSuspended: Bool = false, phpVersion: String? = nil, stagingOf: Int? = nil, deployments: [DeploymentRecord] = []) {
         self.id = id
         self.name = name
         self.domain = domain
@@ -40,12 +44,14 @@ public struct SiteListing: Decodable, Sendable, Hashable, Identifiable {
         self.sslEnabled = sslEnabled
         self.sslDaysLeft = sslDaysLeft
         self.billingSuspended = billingSuspended
+        self.phpVersion = phpVersion
+        self.stagingOf = stagingOf
         self.deployments = deployments
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, domain, serverId, status, branch, disabled, maintenanceMode, deployQueued
-        case sslEnabled, sslDaysLeft, billingSuspended, deployments
+        case sslEnabled, sslDaysLeft, billingSuspended, phpVersion, stagingOf, deployments
     }
 
     public init(from decoder: Decoder) throws {
@@ -62,6 +68,8 @@ public struct SiteListing: Decodable, Sendable, Hashable, Identifiable {
         sslEnabled = try c.decode(Bool.self, forKey: .sslEnabled)
         sslDaysLeft = try c.decodeIfPresent(Int.self, forKey: .sslDaysLeft)
         billingSuspended = try c.decode(Bool.self, forKey: .billingSuspended)
+        phpVersion = try c.decodeIfPresent(String.self, forKey: .phpVersion)
+        stagingOf = try c.decodeIfPresent(Int.self, forKey: .stagingOf)
         deployments = try c.decodeIfPresent([DeploymentRecord].self, forKey: .deployments) ?? []
     }
 }

@@ -260,7 +260,8 @@ extension OrchestratorAPI {
     }
 
     public enum PaymentMethod: String, CaseIterable, Identifiable, Sendable {
-        case cash, bank, card, other
+        case cash, card, other
+        case bank = "bank_transfer"
 
         public var id: String { rawValue }
         public var title: String {
